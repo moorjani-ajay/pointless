@@ -3,11 +3,12 @@ import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { verifyPassword, viewKey } from './auth.js';
 import * as store from './db.js';
 import { buildMcpServer } from './mcp.js';
 import { PdfUnavailableError, renderDeckPdf } from './pdf.js';
 import { renderPrintHtml } from './print.js';
-import { getThemeCss, isTheme } from './themes.js';
+import { getAllThemesCss, getThemeCss, isTheme } from './themes.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -73,13 +74,47 @@ app.delete('/api/decks/:id', (req, res) => {
   res.status(204).end();
 });
 
+/**
+ * Password gate for published decks: protected decks require the `k` proof
+ * obtained from the unlock endpoint. Returns the deck, or null after having
+ * written the error response.
+ */
+function sharedDeckOrReject(req: express.Request, res: express.Response) {
+  const deck = store.getDeckByToken(req.params.token);
+  if (!deck || !deck.published) {
+    res.status(404).json({ error: 'Deck not found' });
+    return null;
+  }
+  const hash = store.getPasswordHash(deck.shareToken);
+  if (hash && req.query.k !== viewKey(hash, deck.shareToken)) {
+    res.status(401).json({ error: 'Password required', protected: true });
+    return null;
+  }
+  return deck;
+}
+
 app.get('/api/shared/:token', (req, res) => {
+  const deck = sharedDeckOrReject(req, res);
+  if (deck) res.json(deck);
+});
+
+app.post('/api/shared/:token/unlock', (req, res) => {
   const deck = store.getDeckByToken(req.params.token);
   if (!deck || !deck.published) return res.status(404).json({ error: 'Deck not found' });
-  res.json(deck);
+  const hash = store.getPasswordHash(deck.shareToken);
+  if (!hash) return res.json({ key: null });
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!verifyPassword(password, hash)) {
+    return res.status(401).json({ error: 'Wrong password' });
+  }
+  res.json({ key: viewKey(hash, deck.shareToken) });
 });
 
 // ---------- Themes, print view, PDF ----------
+
+app.get('/themes/all.css', (_req, res) => {
+  res.type('text/css').send(getAllThemesCss());
+});
 
 app.get('/themes/:name.css', (req, res) => {
   const name = req.params.name;
@@ -88,16 +123,16 @@ app.get('/themes/:name.css', (req, res) => {
 });
 
 app.get('/print/:token', (req, res) => {
-  const deck = store.getDeckByToken(req.params.token);
-  if (!deck || !deck.published) return res.status(404).send('Not found');
-  res.type('html').send(renderPrintHtml(deck));
+  const deck = sharedDeckOrReject(req, res);
+  if (deck) res.type('html').send(renderPrintHtml(deck));
 });
 
 app.get('/d/:token.pdf', async (req, res) => {
-  const deck = store.getDeckByToken(req.params.token);
-  if (!deck || !deck.published) return res.status(404).send('Not found');
+  const deck = sharedDeckOrReject(req, res);
+  if (!deck) return;
   try {
-    const pdf = await renderDeckPdf(`http://127.0.0.1:${PORT}/print/${deck.shareToken}`);
+    const k = typeof req.query.k === 'string' ? `?k=${encodeURIComponent(req.query.k)}` : '';
+    const pdf = await renderDeckPdf(`http://127.0.0.1:${PORT}/print/${deck.shareToken}${k}`);
     const filename = deck.title.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'deck';
     res
       .type('application/pdf')

@@ -1,5 +1,5 @@
 /* Midnight — dark, quiet, for low-light rooms. Same classes, different tokens. */
-.slide {
+.slide.t-midnight {
   --bg: #12161d;
   --ink: #e9edf3;
   --muted: #95a0b0;

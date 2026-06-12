@@ -12,8 +12,10 @@ export interface DeckSummary {
   title: string;
   theme: ThemeName;
   published: boolean;
+  protected: boolean;
   shareToken: string;
   slideCount: number;
+  firstSlideHtml: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,5 +1,5 @@
 /* Boardroom — light, restrained, enterprise-friendly. The default. */
-.slide {
+.slide.t-boardroom {
   --bg: #fdfdfb;
   --ink: #1c2128;
   --muted: #5d6673;

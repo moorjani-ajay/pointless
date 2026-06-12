@@ -26,8 +26,9 @@ LLM: "Here you go: https://pointless.yourcompany.com/d/J7i3g6Ftg…"
   comes out looking designed. Slide HTML is sanitized server-side — no scripts,
   no iframes, no event handlers.
 - **Share links** are unguessable 128-bit tokens (`/d/<token>`). Re-publishing
-  after edits keeps the same link. **PDF export** at `/d/<token>.pdf` via
-  headless Chromium.
+  after edits keeps the same link. Optionally **password-protect** a deck
+  (`publish` takes a `password`); viewers are prompted before it opens, and the
+  PDF honors it too. **PDF export** at `/d/<token>.pdf` via headless Chromium.
 - **Viewer**: keyboard navigation (arrows/space, `f` fullscreen, `n` speaker
   notes), deck overview at `/`.
 
@@ -69,9 +70,10 @@ Repo layout: `server/` (Express, MCP, SQLite, PDF), `web/` (React viewer),
 ## Security model (v1)
 
 Built for deployment **inside a trusted network**. Anyone who can reach the
-server can create decks; anyone with a share link can view that deck. Slide
-HTML is sanitized at write time. Auth (API keys / OAuth) is on the roadmap —
-the schema already carries a nullable `owner` for it.
+server can create decks; anyone with a share link can view that deck unless it
+carries a password (scrypt-hashed at rest). Slide HTML is sanitized at write
+time. Creator auth (API keys / OAuth) is on the roadmap — the schema already
+carries a nullable `owner` for it.
 
 ## License
 

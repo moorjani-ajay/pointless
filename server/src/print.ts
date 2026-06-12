@@ -11,7 +11,7 @@ const escapeHtml = (s: string) =>
  */
 export function renderPrintHtml(deck: Deck): string {
   const pages = deck.slides
-    .map((s) => `<div class="page"><section class="slide">${s.html}</section></div>`)
+    .map((s) => `<div class="page"><section class="slide t-${deck.theme}">${s.html}</section></div>`)
     .join('\n');
   return `<!doctype html>
 <html>

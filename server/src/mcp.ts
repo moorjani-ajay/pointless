@@ -1,5 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
+import { hashPassword } from './auth.js';
 import * as store from './db.js';
 import { sanitizeSlideHtml } from './sanitize.js';
 import { STYLE_GUIDE } from './styleguide.js';
@@ -44,8 +45,10 @@ export function buildMcpServer(baseUrl: string): McpServer {
         'Pointless builds shareable presentations from HTML slides. ' +
         'ALWAYS call get_style_guide before writing or editing slides — it defines the ' +
         'canvas, the design-system classes, and authoring rules. Build decks with ' +
-        'create_deck + add_slide, iterate with update_slide/reorder_slides, then publish ' +
-        'to get a share link for humans.',
+        'create_deck + add_slide and iterate with update_slide/reorder_slides. ' +
+        'When the deck is ready (and after any later edits), ALWAYS call publish and give ' +
+        'the user the share_url — that link is the deliverable. Offer to protect the link ' +
+        'with a password (publish accepts an optional password).',
     }
   );
 
@@ -191,16 +194,30 @@ export function buildMcpServer(baseUrl: string): McpServer {
     {
       title: 'Publish the deck',
       description:
-        'Makes the deck viewable at its share link and returns that link. Re-publishing after edits keeps the same link (it always shows the latest version). Give this link to the user.',
-      inputSchema: { deck_id: z.string() },
+        'Makes the deck viewable at its share link and returns that link. Re-publishing after edits keeps the same link (it always shows the latest version). Give this link to the user. ' +
+        'Pass `password` to require a password for viewing; pass an empty string to remove an existing password; omit it to leave protection unchanged.',
+      inputSchema: {
+        deck_id: z.string(),
+        password: z
+          .string()
+          .max(200)
+          .optional()
+          .describe('Optional view password. Empty string removes protection; omit to keep current setting.'),
+      },
     },
-    async ({ deck_id }) => {
-      const deck = store.publishDeck(deck_id);
+    async ({ deck_id, password }) => {
+      const passwordHash =
+        password === undefined ? undefined : password === '' ? null : hashPassword(password);
+      const deck = store.publishDeck(deck_id, passwordHash);
       if (!deck) return fail(`No deck with id ${deck_id}`);
       return ok({
         share_url: `${baseUrl}/d/${deck.shareToken}`,
         pdf_url: `${baseUrl}/d/${deck.shareToken}.pdf`,
         slide_count: deck.slideCount,
+        password_protected: deck.protected,
+        note: deck.protected
+          ? 'Viewers will be asked for the password. Share it alongside the link.'
+          : 'Anyone with the link can view this deck.',
       });
     }
   );

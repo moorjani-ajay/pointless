@@ -18,6 +18,7 @@ db.exec(`
     theme       TEXT NOT NULL DEFAULT 'boardroom',
     share_token TEXT NOT NULL UNIQUE,
     published   INTEGER NOT NULL DEFAULT 0,
+    password_hash TEXT,
     owner       TEXT,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
@@ -34,6 +35,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_slides_deck ON slides(deck_id, position);
 `);
 
+// Migration for databases created before password protection existed.
+const deckColumns = (db.pragma('table_info(decks)') as { name: string }[]).map((c) => c.name);
+if (!deckColumns.includes('password_hash')) {
+  db.exec('ALTER TABLE decks ADD COLUMN password_hash TEXT');
+}
+
 const newId = () => randomBytes(6).toString('base64url');
 const newShareToken = () => randomBytes(16).toString('base64url');
 const now = () => new Date().toISOString();
@@ -44,9 +51,11 @@ interface DeckRow {
   theme: ThemeName;
   share_token: string;
   published: number;
+  password_hash: string | null;
   created_at: string;
   updated_at: string;
   slide_count: number;
+  first_slide_html: string | null;
 }
 
 interface SlideRow {
@@ -63,8 +72,10 @@ function toSummary(row: DeckRow): DeckSummary {
     title: row.title,
     theme: row.theme,
     published: row.published === 1,
+    protected: row.password_hash != null,
     shareToken: row.share_token,
     slideCount: row.slide_count,
+    firstSlideHtml: row.first_slide_html,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -75,7 +86,9 @@ function toSlide(row: SlideRow): Slide {
 }
 
 const SUMMARY_SQL = `
-  SELECT d.*, (SELECT COUNT(*) FROM slides s WHERE s.deck_id = d.id) AS slide_count
+  SELECT d.*,
+    (SELECT COUNT(*) FROM slides s WHERE s.deck_id = d.id) AS slide_count,
+    (SELECT html FROM slides s WHERE s.deck_id = d.id ORDER BY position LIMIT 1) AS first_slide_html
   FROM decks d`;
 
 function touchDeck(deckId: string): void {
@@ -186,7 +199,23 @@ export function setTheme(deckId: string, theme: ThemeName): boolean {
   return changed > 0;
 }
 
-export function publishDeck(deckId: string): Deck | null {
-  db.prepare('UPDATE decks SET published = 1, updated_at = ? WHERE id = ?').run(now(), deckId);
+/**
+ * Publish a deck. `passwordHash` semantics: undefined = leave protection
+ * unchanged, null = remove protection, string = set it.
+ */
+export function publishDeck(deckId: string, passwordHash?: string | null): Deck | null {
+  if (passwordHash === undefined) {
+    db.prepare('UPDATE decks SET published = 1, updated_at = ? WHERE id = ?').run(now(), deckId);
+  } else {
+    db.prepare('UPDATE decks SET published = 1, password_hash = ?, updated_at = ? WHERE id = ?')
+      .run(passwordHash, now(), deckId);
+  }
   return getDeck(deckId);
+}
+
+export function getPasswordHash(shareToken: string): string | null {
+  const row = db.prepare('SELECT password_hash FROM decks WHERE share_token = ?').get(shareToken) as
+    | { password_hash: string | null }
+    | undefined;
+  return row?.password_hash ?? null;
 }
