@@ -1,0 +1,13 @@
+/* Midnight — dark, quiet, for low-light rooms. Same classes, different tokens. */
+.slide {
+  --bg: #12161d;
+  --ink: #e9edf3;
+  --muted: #95a0b0;
+  --accent: #64a4ea;
+  --accent-soft: #1d2c40;
+  --card: #1a202a;
+  --border: #2a3240;
+  --font-display: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-body: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+}

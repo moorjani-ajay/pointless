@@ -1,0 +1,13 @@
+/* Boardroom — light, restrained, enterprise-friendly. The default. */
+.slide {
+  --bg: #fdfdfb;
+  --ink: #1c2128;
+  --muted: #5d6673;
+  --accent: #15568f;
+  --accent-soft: #e3edf6;
+  --card: #f4f4f0;
+  --border: #e2e1da;
+  --font-display: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-body: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
+}
