@@ -1,5 +1,3 @@
-import { SLIDE_HEIGHT, SLIDE_WIDTH } from '@pointless/shared';
-
 type Browser = import('playwright').Browser;
 
 let browserPromise: Promise<Browser> | null = null;
@@ -19,8 +17,11 @@ async function getBrowser(): Promise<Browser> {
 
 export class PdfUnavailableError extends Error {}
 
-/** Render the local print page for a deck to a PDF buffer. */
-export async function renderDeckPdf(printUrl: string): Promise<Buffer> {
+/**
+ * Best-effort PDF of an arbitrary interactive document: render at a 16:9
+ * laptop viewport and print what the initial view shows.
+ */
+export async function renderDeckPdf(url: string): Promise<Buffer> {
   let browser: Browser;
   try {
     browser = await getBrowser();
@@ -29,14 +30,11 @@ export async function renderDeckPdf(printUrl: string): Promise<Buffer> {
       `PDF export needs Chromium. Install it with: npx playwright install --with-deps chromium (${(err as Error).message})`
     );
   }
-  const page = await browser.newPage({ viewport: { width: SLIDE_WIDTH, height: SLIDE_HEIGHT } });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   try {
-    await page.goto(printUrl, { waitUntil: 'networkidle', timeout: 30_000 });
-    return await page.pdf({
-      width: `${SLIDE_WIDTH}px`,
-      height: `${SLIDE_HEIGHT}px`,
-      printBackground: true,
-    });
+    await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
+    await page.waitForTimeout(800);
+    return await page.pdf({ width: '1440px', height: '900px', printBackground: true });
   } finally {
     await page.close();
   }

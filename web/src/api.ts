@@ -1,4 +1,4 @@
-import type { Deck, DeckSummary } from '@pointless/shared';
+import type { PresentationSummary } from '@pointless/shared';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -14,11 +14,11 @@ async function get<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const listDecks = () => get<DeckSummary[]>('/api/decks');
-export const getDeck = (id: string) => get<Deck>(`/api/decks/${id}`);
+export const listDecks = () => get<PresentationSummary[]>('/api/decks');
+export const getDeck = (id: string) => get<PresentationSummary>(`/api/decks/${id}`);
 
 export const getSharedDeck = (token: string, key?: string | null) =>
-  get<Deck>(`/api/shared/${token}${key ? `?k=${encodeURIComponent(key)}` : ''}`);
+  get<PresentationSummary>(`/api/shared/${token}${key ? `?k=${encodeURIComponent(key)}` : ''}`);
 
 export async function unlockDeck(token: string, password: string): Promise<string | null> {
   const res = await fetch(`/api/shared/${token}/unlock`, {

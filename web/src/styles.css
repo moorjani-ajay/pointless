@@ -1,5 +1,5 @@
 /* Pointless — editorial print-shop. Warm paper, ink, one signal accent.
-   App chrome only; slides style themselves via /themes/all.css. */
+   App chrome only; presentations are self-styled documents in sandboxed iframes. */
 
 :root {
   --paper: #f5f1e8;
@@ -11,7 +11,6 @@
   --accent-deep: #b53a16;
   --line: #d9d2c0;
   --hair: rgba(28, 27, 23, 0.14);
-  --stage: #211e19;
   --danger: #a33a2e;
   --font-display: Charter, 'Bitstream Charter', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
   --font-ui: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -36,7 +35,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 
 .dot { color: var(--accent); }
 
-/* Grain — landing only, so slides stay crisp. */
+/* Grain — landing only, so documents stay crisp. */
 .landing::before {
   content: '';
   position: fixed;
@@ -191,7 +190,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   padding: 10px 16px;
 }
 
-/* Fanned slide previews */
+/* Fanned mock browser windows */
 
 .hero-art {
   position: relative;
@@ -199,33 +198,75 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   min-width: 0;
 }
 
-.hero-slide {
+.mock {
   position: absolute;
-  width: 88%;
-  aspect-ratio: 16 / 9;
+  width: 86%;
+  aspect-ratio: 16 / 10;
   border: 1px solid var(--hair);
-  border-radius: 6px;
+  border-radius: 10px;
   overflow: hidden;
   background: #fff;
+  display: flex;
+  flex-direction: column;
 }
 
-.hero-slide-back {
+.mock-back {
   top: 0;
   right: 0;
   transform: rotate(2.5deg);
   box-shadow: 0 18px 50px rgba(28, 27, 23, 0.18);
 }
 
-.hero-slide-front {
+.mock-front {
   bottom: 0;
   left: 0;
   transform: rotate(-1.5deg);
   box-shadow: 0 24px 60px rgba(28, 27, 23, 0.26);
 }
 
+.mock-bar {
+  display: flex;
+  gap: 6px;
+  padding: 9px 12px;
+  background: var(--paper-deep);
+  border-bottom: 1px solid var(--hair);
+}
+
+.mock-bar i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.mock-body { flex: 1; padding: 9% 10%; display: flex; flex-direction: column; gap: 6%; }
+
+.mock-light { background: #faf6ec; }
+
+.mock-dark { background: linear-gradient(160deg, #0f2238 0%, #14283d 55%, #0b1a2a 100%); }
+
+.mock-kicker { width: 34%; height: 6%; border-radius: 3px; background: var(--accent); opacity: 0.85; }
+.mock-dark .mock-kicker { background: #c9a14a; }
+
+.mock-headline { width: 82%; height: 17%; border-radius: 4px; background: rgba(28, 27, 23, 0.82); }
+.mock-dark .mock-headline { background: rgba(245, 236, 215, 0.92); }
+
+.mock-rule { width: 14%; height: 3%; background: var(--accent); }
+.mock-dark .mock-rule { background: #c9a14a; }
+
+.mock-line { width: 60%; height: 7%; border-radius: 3px; background: rgba(28, 27, 23, 0.18); }
+
+.mock-tiles { display: flex; gap: 6%; flex: 1; align-items: flex-end; }
+.mock-tiles i {
+  flex: 1;
+  height: 88%;
+  border-radius: 5px;
+  background: rgba(28, 27, 23, 0.08);
+  border: 1px solid rgba(28, 27, 23, 0.14);
+}
+
 /* ---------- Sections ---------- */
 
-/* Scoped to the landing — slides also render as <section> and must not inherit this. */
 .landing section { max-width: 1180px; margin: 0 auto; padding: 72px 36px 8px; }
 
 .section-title {
@@ -332,41 +373,28 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   border-radius: 0 10px 10px 0;
 }
 
-/* ---------- Themes ---------- */
+/* ---------- Aesthetics row ---------- */
 
-.theme-grid {
+.aesthetic-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
 }
 
-.theme-card { margin: 0; }
-
-.theme-preview {
-  aspect-ratio: 16 / 9;
-  border: 1px solid var(--hair);
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 12px 36px rgba(28, 27, 23, 0.12);
-  transition: transform 160ms ease, box-shadow 160ms ease;
-}
-
-.theme-card:hover .theme-preview {
-  transform: translateY(-3px);
-  box-shadow: 0 18px 44px rgba(28, 27, 23, 0.18);
-}
-
-.theme-card figcaption {
+.aesthetic-chip {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 12px;
+  padding: 18px 20px;
   display: flex;
-  gap: 12px;
-  align-items: baseline;
-  padding: 14px 4px 0;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.theme-card strong { font-family: var(--font-display); font-size: 19px; }
-.theme-card span { color: var(--muted); font-size: 14px; }
+.aesthetic-chip strong { font-family: var(--font-display); font-size: 19px; }
+.aesthetic-chip span { color: var(--muted); font-size: 13.5px; }
 
-/* ---------- Deck grid ---------- */
+/* ---------- Presentation grid ---------- */
 
 .deck-grid {
   list-style: none;
@@ -393,13 +421,31 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 
 .deck-thumb {
   display: block;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 16 / 10;
   border-bottom: 1px solid var(--line);
   background: var(--paper-deep);
   position: relative;
-  /* It's a link wrapping a rendered slide — don't let anchor styling bleed in. */
   color: inherit;
   text-decoration: none;
+}
+
+/* A live, inert, scaled-down render of the actual document. */
+.thumb-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 4× the clip size scaled by 0.25 — fills the clip exactly at any card width,
+   and the document sees a laptop-ish viewport. */
+.thumb-frame {
+  width: 400%;
+  height: 400%;
+  border: 0;
+  transform: scale(0.25);
+  transform-origin: top left;
+  pointer-events: none;
 }
 
 .deck-thumb-empty {
@@ -452,121 +498,52 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   color: var(--muted);
 }
 
-/* ---------- Viewer ---------- */
+/* ---------- Document host (viewer) ---------- */
 
-.viewer {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: var(--stage);
+.doc-host {
+  position: fixed;
+  inset: 0;
+  background: #111;
 }
 
-.viewer-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 10px 18px;
-  background: var(--paper);
-  border-bottom: 1px solid var(--hair);
-}
-
-.viewer-bar-side { display: flex; align-items: center; gap: 14px; min-width: 0; }
-
-.viewer-title {
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.viewer-count {
-  font-family: var(--font-mono);
-  color: var(--muted);
-  font-size: 12.5px;
-}
-
-.viewer-stage { flex: 1; min-height: 0; padding: 30px; cursor: pointer; }
-
-.slide-canvas {
+.doc-frame {
   width: 100%;
   height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.slide-frame {
-  overflow: hidden;
-  border-radius: 4px;
-  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.45);
-}
-
-/* Thumbnails reuse SlideCanvas inside aspect boxes — kill the presentation shadow there. */
-.deck-thumb .slide-frame,
-.theme-preview .slide-frame,
-.hero-slide .slide-frame { box-shadow: none; border-radius: 0; }
-
-.viewer-progress { height: 3px; background: rgba(245, 241, 232, 0.12); }
-.viewer-progress-fill { height: 100%; background: var(--accent); transition: width 200ms ease; }
-
-.viewer-notes {
-  background: var(--paper);
-  border-top: 1px solid var(--hair);
-  padding: 14px 24px 18px;
-  max-height: 28vh;
-  overflow-y: auto;
-  font-size: 14.5px;
-}
-
-.viewer-notes strong {
+  border: 0;
   display: block;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--accent);
-  margin-bottom: 6px;
 }
 
-.viewer-notes p { margin: 0; white-space: pre-wrap; }
+.doc-home {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 10;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--hair);
+  border-radius: 999px;
+  padding: 5px 14px;
+  text-decoration: none;
+  opacity: 0.55;
+  transition: opacity 150ms ease;
+}
+
+.doc-home:hover { opacity: 1; }
 
 .viewer-message {
-  flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 12px;
-  height: 100%;
   color: var(--muted);
   font-size: 16px;
   background: var(--paper);
 }
-
-.nav-arrow {
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 44px;
-  height: 68px;
-  border: none;
-  border-radius: 10px;
-  background: rgba(245, 241, 232, 0.08);
-  color: rgba(245, 241, 232, 0.75);
-  font-size: 30px;
-  line-height: 1;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 150ms ease, background 150ms ease;
-}
-
-.viewer:hover .nav-arrow { opacity: 1; }
-.nav-arrow:hover { background: rgba(245, 241, 232, 0.18); color: #fff; }
-.nav-prev { left: 14px; }
-.nav-next { right: 14px; }
 
 /* ---------- Password gate ---------- */
 
@@ -580,7 +557,7 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
 }
 
 .gate-card {
-  width: 440px;
+  width: 460px;
   max-width: 100%;
   background: var(--card);
   border: 1px solid var(--line);
@@ -615,9 +592,9 @@ code { font-family: var(--font-mono); font-size: 0.9em; }
   .hero { grid-template-columns: 1fr; padding-top: 56px; }
   .hero-art { max-width: 560px; }
   .step-grid { grid-template-columns: 1fr; }
+  .aesthetic-row { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 760px) {
-  .theme-grid { grid-template-columns: 1fr; }
-  .topbar, .hero, section, .footer { padding-left: 22px; padding-right: 22px; }
+  .topbar, .hero, .landing section, .footer { padding-left: 22px; padding-right: 22px; }
 }

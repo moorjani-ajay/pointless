@@ -8,9 +8,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': backend,
-      '/themes': backend,
+      '/raw': backend,
       '/mcp': backend,
-      '/print': backend,
       '^/d/.*\\.pdf$': backend,
     },
   },

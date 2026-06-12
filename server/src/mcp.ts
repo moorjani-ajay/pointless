@@ -2,14 +2,10 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { hashPassword } from './auth.js';
 import * as store from './db.js';
-import { sanitizeSlideHtml } from './sanitize.js';
-import { STYLE_GUIDE } from './styleguide.js';
-import { DEFAULT_THEME, THEMES, isTheme } from './themes.js';
-import type { Deck } from '@pointless/shared';
+import { DESIGN_GUIDE } from './designguide.js';
+import type { Presentation } from '@pointless/shared';
 
-const themeSchema = z
-  .enum(Object.keys(THEMES) as [string, ...string[]])
-  .describe('Theme name. Call get_style_guide to see what each looks like.');
+export const MAX_HTML_BYTES = 2 * 1024 * 1024;
 
 type ToolResult = {
   content: { type: 'text'; text: string }[];
@@ -25,179 +21,129 @@ const fail = (message: string): ToolResult => ({
   isError: true,
 });
 
-function deckInfo(deck: Deck, baseUrl: string) {
+function info(p: Presentation, baseUrl: string) {
   return {
-    deck_id: deck.id,
-    title: deck.title,
-    theme: deck.theme,
-    slide_count: deck.slideCount,
-    published: deck.published,
-    preview_url: `${baseUrl}/deck/${deck.id}`,
-    share_url: deck.published ? `${baseUrl}/d/${deck.shareToken}` : null,
+    presentation_id: p.id,
+    title: p.title,
+    html_bytes: p.htmlSize,
+    published: p.published,
+    password_protected: p.protected,
+    preview_url: `${baseUrl}/deck/${p.id}`,
+    share_url: p.published ? `${baseUrl}/d/${p.shareToken}` : null,
   };
 }
 
 export function buildMcpServer(baseUrl: string): McpServer {
   const server = new McpServer(
-    { name: 'pointless', version: '0.1.0' },
+    { name: 'pointless', version: '0.2.0' },
     {
       instructions:
-        'Pointless builds shareable presentations from HTML slides. ' +
-        'ALWAYS call get_style_guide before writing or editing slides — it defines the ' +
-        'canvas, the design-system classes, and authoring rules. Build decks with ' +
-        'create_deck + add_slide and iterate with update_slide/reorder_slides. ' +
-        'When the deck is ready (and after any later edits), ALWAYS call publish and give ' +
-        'the user the share_url — that link is the deliverable. Offer to protect the link ' +
-        'with a password (publish accepts an optional password).',
+        'Pointless hosts presentations that are full, self-contained interactive HTML documents ' +
+        '(not slide templates). ALWAYS call get_design_guide before writing one — it defines the ' +
+        'requirements and the craft bar. Flow: create_presentation → set_html (complete document) → ' +
+        'publish, then ALWAYS give the user the share_url — that link is the deliverable. Offer to ' +
+        'protect it with a password (publish accepts one).',
     }
   );
 
   server.registerTool(
-    'get_style_guide',
+    'get_design_guide',
     {
-      title: 'Get the slide authoring style guide',
+      title: 'Get the presentation design guide',
       description:
-        'Returns the authoring contract: slide canvas, available design-system classes, themes, and HTML recipes. Call this before writing any slide HTML.',
+        'Returns the authoring contract and craft guidance: self-containment rules, sandbox constraints, house light/dark palettes, interaction patterns. Call this before writing any presentation HTML.',
       inputSchema: {},
     },
-    async () => ok(STYLE_GUIDE)
+    async () => ok(DESIGN_GUIDE)
   );
 
   server.registerTool(
-    'create_deck',
+    'create_presentation',
     {
-      title: 'Create a new deck',
-      description: 'Creates an empty presentation. Returns the deck_id used by all other tools.',
-      inputSchema: {
-        title: z.string().min(1).max(200).describe('Human-readable deck title'),
-        theme: themeSchema.optional(),
-      },
+      title: 'Create a new presentation',
+      description: 'Creates an empty presentation and returns its id. Then send the full HTML document with set_html.',
+      inputSchema: { title: z.string().min(1).max(200).describe('Human-readable title') },
     },
-    async ({ title, theme }) => {
-      const deck = store.createDeck(title, theme && isTheme(theme) ? theme : DEFAULT_THEME);
+    async ({ title }) => {
+      const p = store.createPresentation(title);
       return ok({
-        ...deckInfo(deck, baseUrl),
-        next: 'Add slides with add_slide. Call get_style_guide first if you have not.',
+        ...info(p, baseUrl),
+        next: 'Write the complete HTML document and call set_html. Call get_design_guide first if you have not.',
       });
     }
   );
 
   server.registerTool(
-    'get_deck',
+    'set_html',
     {
-      title: 'Get a deck and all its slides',
+      title: 'Set the presentation HTML',
       description:
-        'Returns deck metadata plus every slide (id, position, html, notes). Use it to read current state before editing.',
-      inputSchema: { deck_id: z.string() },
-    },
-    async ({ deck_id }) => {
-      const deck = store.getDeck(deck_id);
-      if (!deck) return fail(`No deck with id ${deck_id}`);
-      return ok({ ...deckInfo(deck, baseUrl), slides: deck.slides });
-    }
-  );
-
-  server.registerTool(
-    'add_slide',
-    {
-      title: 'Add a slide',
-      description:
-        'Appends a slide (or inserts at `position`, 1-based). `html` is a fragment per the style guide — no <html>/<body>/.slide wrapper. Optional speaker `notes`.',
+        'Replaces the presentation with a complete, self-contained HTML document (<!doctype html> … </html>). Used for both first write and edits — always send the full document. Optionally update the title.',
       inputSchema: {
-        deck_id: z.string(),
-        html: z.string().min(1).describe('Slide HTML fragment using design-system classes'),
-        notes: z.string().optional().describe('Speaker notes (plain text)'),
-        position: z.number().int().min(1).optional().describe('1-based insert position; omit to append'),
+        presentation_id: z.string(),
+        html: z.string().min(1).describe('The complete HTML document'),
+        title: z.string().min(1).max(200).optional().describe('New title, if it changed'),
       },
     },
-    async ({ deck_id, html, notes, position }) => {
-      if (!store.getDeck(deck_id)) return fail(`No deck with id ${deck_id}`);
-      const clean = sanitizeSlideHtml(html);
-      if ('error' in clean) return fail(clean.error);
-      const slide = store.addSlide(deck_id, clean.html, notes ?? null, position);
-      return ok({ slide_id: slide.id, position: slide.position });
-    }
-  );
-
-  server.registerTool(
-    'update_slide',
-    {
-      title: 'Update a slide',
-      description: 'Replaces a slide\'s html and/or notes. Omitted fields are left unchanged.',
-      inputSchema: {
-        slide_id: z.string(),
-        html: z.string().min(1).optional(),
-        notes: z.string().nullable().optional().describe('New notes; pass null to clear'),
-      },
-    },
-    async ({ slide_id, html, notes }) => {
-      let cleanHtml: string | undefined;
-      if (html !== undefined) {
-        const clean = sanitizeSlideHtml(html);
-        if ('error' in clean) return fail(clean.error);
-        cleanHtml = clean.html;
+    async ({ presentation_id, html, title }) => {
+      if (Buffer.byteLength(html, 'utf8') > MAX_HTML_BYTES) {
+        return fail('Document exceeds 2MB. Trim embedded data URIs or split the content.');
       }
-      if (!store.updateSlide(slide_id, cleanHtml, notes)) {
-        return fail(`No slide with id ${slide_id}`);
+      if (!/<html[\s>]/i.test(html)) {
+        return fail('Send a complete HTML document including <html>, <head> and <body> — see get_design_guide.');
       }
-      return ok({ updated: slide_id });
+      if (!store.setHtml(presentation_id, html, title)) {
+        return fail(`No presentation with id ${presentation_id}`);
+      }
+      const p = store.getPresentation(presentation_id)!;
+      return ok({
+        ...info(p, baseUrl),
+        next: p.published
+          ? 'The share link already shows the new version.'
+          : 'Call publish to get the share link.',
+      });
     }
   );
 
   server.registerTool(
-    'delete_slide',
+    'get_presentation',
     {
-      title: 'Delete a slide',
-      description: 'Removes a slide; later slides shift up.',
-      inputSchema: { slide_id: z.string() },
+      title: 'Get a presentation',
+      description: 'Returns metadata and the current HTML document. Use it to read state before editing.',
+      inputSchema: { presentation_id: z.string() },
     },
-    async ({ slide_id }) => {
-      if (!store.deleteSlide(slide_id)) return fail(`No slide with id ${slide_id}`);
-      return ok({ deleted: slide_id });
+    async ({ presentation_id }) => {
+      const p = store.getPresentation(presentation_id);
+      if (!p) return fail(`No presentation with id ${presentation_id}`);
+      return ok({ ...info(p, baseUrl), html: p.html });
     }
   );
 
   server.registerTool(
-    'reorder_slides',
+    'list_presentations',
     {
-      title: 'Reorder slides',
-      description:
-        'Sets the full slide order. `slide_ids` must list every slide id in the deck exactly once, in the new order.',
-      inputSchema: {
-        deck_id: z.string(),
-        slide_ids: z.array(z.string()).min(1),
-      },
+      title: 'List presentations',
+      description: 'Lists all presentations on this server with ids, titles and share status.',
+      inputSchema: {},
     },
-    async ({ deck_id, slide_ids }) => {
-      if (!store.getDeck(deck_id)) return fail(`No deck with id ${deck_id}`);
-      const err = store.reorderSlides(deck_id, slide_ids);
-      return err ? fail(err) : ok({ reordered: deck_id });
-    }
-  );
-
-  server.registerTool(
-    'set_theme',
-    {
-      title: 'Set the deck theme',
-      description: 'Switches the deck to a different theme. Slides are restyled automatically.',
-      inputSchema: { deck_id: z.string(), theme: themeSchema },
-    },
-    async ({ deck_id, theme }) => {
-      if (!isTheme(theme)) return fail(`Unknown theme ${theme}`);
-      if (!store.setTheme(deck_id, theme)) return fail(`No deck with id ${deck_id}`);
-      return ok({ deck_id, theme });
-    }
+    async () => ok(store.listPresentations().map((p) => ({
+      presentation_id: p.id,
+      title: p.title,
+      published: p.published,
+      password_protected: p.protected,
+      updated_at: p.updatedAt,
+    })))
   );
 
   server.registerTool(
     'publish',
     {
-      title: 'Publish the deck',
+      title: 'Publish the presentation',
       description:
-        'Makes the deck viewable at its share link and returns that link. Re-publishing after edits keeps the same link (it always shows the latest version). Give this link to the user. ' +
+        'Makes the presentation viewable at its share link and returns that link — give it to the user. Re-publishing after edits keeps the same link. ' +
         'Pass `password` to require a password for viewing; pass an empty string to remove an existing password; omit it to leave protection unchanged.',
       inputSchema: {
-        deck_id: z.string(),
+        presentation_id: z.string(),
         password: z
           .string()
           .max(200)
@@ -205,19 +151,19 @@ export function buildMcpServer(baseUrl: string): McpServer {
           .describe('Optional view password. Empty string removes protection; omit to keep current setting.'),
       },
     },
-    async ({ deck_id, password }) => {
+    async ({ presentation_id, password }) => {
+      const existing = store.getPresentation(presentation_id);
+      if (!existing) return fail(`No presentation with id ${presentation_id}`);
+      if (existing.htmlSize === 0) return fail('This presentation has no content yet — call set_html first.');
       const passwordHash =
         password === undefined ? undefined : password === '' ? null : hashPassword(password);
-      const deck = store.publishDeck(deck_id, passwordHash);
-      if (!deck) return fail(`No deck with id ${deck_id}`);
+      const p = store.publishPresentation(presentation_id, passwordHash)!;
       return ok({
-        share_url: `${baseUrl}/d/${deck.shareToken}`,
-        pdf_url: `${baseUrl}/d/${deck.shareToken}.pdf`,
-        slide_count: deck.slideCount,
-        password_protected: deck.protected,
-        note: deck.protected
+        share_url: `${baseUrl}/d/${p.shareToken}`,
+        password_protected: p.protected,
+        note: p.protected
           ? 'Viewers will be asked for the password. Share it alongside the link.'
-          : 'Anyone with the link can view this deck.',
+          : 'Anyone with the link can view this presentation.',
       });
     }
   );

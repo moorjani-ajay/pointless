@@ -1,47 +1,10 @@
-import type { DeckSummary } from '@pointless/shared';
+import type { PresentationSummary } from '@pointless/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { deleteDeck, listDecks } from '../api';
-import { SlideCanvas } from '../components/SlideCanvas';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-
-const HERO_SLIDE = `
-  <div class="center">
-    <p class="kicker">Q3 Business Review</p>
-    <h1>Growth held. Costs didn't.</h1>
-    <p class="subtitle">Finance · October 2026</p>
-  </div>`;
-
-const HERO_SLIDE_BACK = `
-  <p class="kicker">Impact</p>
-  <h2>Renewals</h2>
-  <div class="fill" style="display:flex;align-items:center">
-    <div class="stat-row">
-      <div class="stat"><div class="stat-value">87%</div><div class="stat-label">renewal rate</div></div>
-      <div class="stat"><div class="stat-value">$4.2M</div><div class="stat-label">renewed ARR</div></div>
-    </div>
-  </div>`;
-
-const THEME_PREVIEWS: { name: string; label: string; blurb: string; html: string }[] = [
-  {
-    name: 'boardroom',
-    label: 'Boardroom',
-    blurb: 'Light, restrained, enterprise-friendly. The default.',
-    html: `<p class="kicker">Where we are</p><h2>Three things changed</h2><hr class="divider">
-      <div class="columns">
-        <div class="col"><div class="card"><h3>Pricing</h3><p>New tiers shipped; ARPU up <strong class="accent">11%</strong>.</p></div></div>
-        <div class="col"><div class="card"><h3>Churn</h3><p>Down to 2.1% after the revamp.</p></div></div>
-      </div>`,
-  },
-  {
-    name: 'midnight',
-    label: 'Midnight',
-    blurb: 'Dark, quiet, for low-light rooms and late demos.',
-    html: `<div class="center"><p class="kicker">Roadmap</p><h1>Ship the boring thing first.</h1><p class="subtitle">Platform · H2 plan</p></div>`,
-  },
-];
 
 function CopyButton({
   text,
@@ -67,35 +30,41 @@ function CopyButton({
   );
 }
 
-function DeckCard({ deck, onDelete }: { deck: DeckSummary; onDelete: (d: DeckSummary) => void }) {
+/** Scaled, inert, sandboxed live preview of a presentation document. */
+function DocThumb({ deck }: { deck: PresentationSummary }) {
+  if (deck.htmlSize === 0) return <span className="deck-thumb-empty">No content yet</span>;
+  return (
+    <div className="thumb-clip" aria-hidden="true">
+      <iframe
+        className="thumb-frame"
+        src={`/raw/deck/${deck.id}`}
+        sandbox="allow-scripts"
+        tabIndex={-1}
+        loading="lazy"
+        title=""
+      />
+    </div>
+  );
+}
+
+function DeckCard({ deck, onDelete }: { deck: PresentationSummary; onDelete: (d: PresentationSummary) => void }) {
   const shareUrl = `${window.location.origin}/d/${deck.shareToken}`;
   return (
     <li className="deck-card">
       <Link className="deck-thumb" to={`/deck/${deck.id}`} aria-label={`Open ${deck.title}`}>
-        {deck.firstSlideHtml ? (
-          <SlideCanvas html={deck.firstSlideHtml} theme={deck.theme} />
-        ) : (
-          <span className="deck-thumb-empty">No slides yet</span>
-        )}
+        <DocThumb deck={deck} />
       </Link>
       <div className="deck-body">
         <h3 className="deck-title">
           <Link to={`/deck/${deck.id}`}>{deck.title}</Link>
         </h3>
         <p className="deck-meta">
-          {deck.slideCount} slide{deck.slideCount === 1 ? '' : 's'} · {fmtDate(deck.updatedAt)} ·{' '}
+          {fmtDate(deck.updatedAt)} · {Math.max(1, Math.round(deck.htmlSize / 1024))} KB ·{' '}
           {deck.published ? (deck.protected ? 'published 🔒' : 'published') : 'draft'}
         </p>
         <div className="deck-actions">
           {deck.published && (
-            <>
-              <CopyButton className="btn btn-small" text={shareUrl} label="Copy link" />
-              {!deck.protected && (
-                <a className="btn btn-small" href={`/d/${deck.shareToken}.pdf`}>
-                  PDF
-                </a>
-              )}
-            </>
+            <CopyButton className="btn btn-small" text={shareUrl} label="Copy link" />
           )}
           <button className="btn btn-small btn-danger" onClick={() => onDelete(deck)}>
             Delete
@@ -107,7 +76,7 @@ function DeckCard({ deck, onDelete }: { deck: DeckSummary; onDelete: (d: DeckSum
 }
 
 export function Home() {
-  const [decks, setDecks] = useState<DeckSummary[] | null>(null);
+  const [decks, setDecks] = useState<PresentationSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const origin = window.location.origin;
   const mcpUrl = `${origin}/mcp`;
@@ -116,7 +85,7 @@ export function Home() {
   const refresh = () => listDecks().then(setDecks, (e: Error) => setError(e.message));
   useEffect(() => void refresh(), []);
 
-  const remove = async (deck: DeckSummary) => {
+  const remove = async (deck: PresentationSummary) => {
     if (!window.confirm(`Delete "${deck.title}"? This cannot be undone.`)) return;
     await deleteDeck(deck.id);
     void refresh();
@@ -131,7 +100,7 @@ export function Home() {
           pointless<span className="dot">.</span>
         </span>
         <div className="topbar-right">
-          {hasDecks && <a href="#decks">Your decks</a>}
+          {hasDecks && <a href="#decks">Your presentations</a>}
           <a href="#connect">Setup</a>
           <span className="topbar-tag">self-hosted · MIT</span>
         </div>
@@ -147,8 +116,9 @@ export function Home() {
             </em>
           </h1>
           <p className="lede rise d3">
-            Connect Claude — or any LLM that speaks MCP — to this server and talk your slides into
-            existence. When it's done, you get a link to share. PowerPoint never gets opened.
+            Connect Claude — or any LLM that speaks MCP — and describe what you need. It designs a
+            bespoke interactive presentation: its own typography, motion, and navigation, not a
+            template. You get a link to share. PowerPoint never gets opened.
           </p>
           <div className="hero-cta rise d4">
             <CopyButton className="btn btn-primary" text={mcpUrl} label="Copy MCP endpoint" />
@@ -156,11 +126,23 @@ export function Home() {
           </div>
         </div>
         <div className="hero-art rise d3" aria-hidden="true">
-          <div className="hero-slide hero-slide-back">
-            <SlideCanvas html={HERO_SLIDE_BACK} theme="midnight" />
+          <div className="mock mock-back">
+            <div className="mock-bar"><i /><i /><i /></div>
+            <div className="mock-body mock-dark">
+              <div className="mock-kicker" />
+              <div className="mock-headline" />
+              <div className="mock-rule" />
+              <div className="mock-line" />
+            </div>
           </div>
-          <div className="hero-slide hero-slide-front">
-            <SlideCanvas html={HERO_SLIDE} theme="boardroom" />
+          <div className="mock mock-front">
+            <div className="mock-bar"><i /><i /><i /></div>
+            <div className="mock-body mock-light">
+              <div className="mock-kicker" />
+              <div className="mock-headline" />
+              <div className="mock-rule" />
+              <div className="mock-tiles"><i /><i /><i /></div>
+            </div>
           </div>
         </div>
       </header>
@@ -190,60 +172,57 @@ export function Home() {
           <li className="step">
             <span className="step-no">02</span>
             <h3>Ask</h3>
-            <p>Describe the deck like you'd brief a colleague. Claude reads the style guide and designs the slides.</p>
+            <p>
+              Brief it like a designer, not a typist. Claude reads the design guide and builds the
+              whole experience — layout, motion, navigation.
+            </p>
             <blockquote className="prompt-example">
-              "Make me a six-slide deck on the Q3 numbers — use the midnight theme, end with the
-              hiring ask."
+              "Turn these Q3 numbers into a dark, editorial presentation — full-screen sections,
+              keyboard navigation, end on the hiring ask."
             </blockquote>
           </li>
           <li className="step">
             <span className="step-no">03</span>
             <h3>Share</h3>
             <p>
-              Claude publishes automatically and replies with the link. Anyone can open it in a
-              browser — present fullscreen, or download the PDF.
+              Claude publishes and replies with the link. It opens full-screen in any browser, on
+              any device — no software, no attachments.
             </p>
             <p className="step-fine">
-              Need it private? Ask for a password — viewers are prompted before the deck opens.
+              Need it private? Ask for a password — viewers are prompted before it opens.
             </p>
           </li>
         </ol>
       </section>
 
-      <section className="themes">
+      <section className="aesthetics">
         <h2 className="section-title">
-          <span className="section-no">Two themes, zero fiddling</span>
+          <span className="section-no">Not slides — experiences</span>
         </h2>
         <p className="section-lede">
-          Slides are HTML on a fixed canvas, styled by a design system the LLM reads before it
-          writes. Decks come out consistent no matter who — or what — made them.
+          Every presentation is a self-contained interactive page, sandboxed for safety. Quiz decks
+          with timers, flip-card readers, scrollytelling reports, full-screen steppers — whatever
+          the content calls for, in whatever aesthetic you ask for.
         </p>
-        <div className="theme-grid">
-          {THEME_PREVIEWS.map((t) => (
-            <figure key={t.name} className="theme-card">
-              <div className="theme-preview">
-                <SlideCanvas html={t.html} theme={t.name} />
-              </div>
-              <figcaption>
-                <strong>{t.label}</strong>
-                <span>{t.blurb}</span>
-              </figcaption>
-            </figure>
-          ))}
+        <div className="aesthetic-row">
+          <div className="aesthetic-chip"><strong>Editorial</strong><span>paper, serifs, hairlines</span></div>
+          <div className="aesthetic-chip"><strong>After Hours</strong><span>deep blues, gold, glow</span></div>
+          <div className="aesthetic-chip"><strong>Brutalist</strong><span>mono, raw contrast</span></div>
+          <div className="aesthetic-chip"><strong>Yours</strong><span>just describe it</span></div>
         </div>
       </section>
 
       <section className="decks" id="decks">
         <h2 className="section-title">
-          <span className="section-no">Your decks</span>
+          <span className="section-no">Your presentations</span>
         </h2>
-        {error && <p className="notice">Could not load decks: {error}</p>}
+        {error && <p className="notice">Could not load presentations: {error}</p>}
         {decks && decks.length === 0 && (
           <div className="empty">
             <p className="empty-title">
               Nothing here yet<span className="dot">.</span> Pointless, even.
             </p>
-            <p className="empty-help">Connect Claude above and ask it to make you a deck.</p>
+            <p className="empty-help">Connect Claude above and ask it to make you something.</p>
           </div>
         )}
         {hasDecks && (
@@ -259,7 +238,7 @@ export function Home() {
         <span>
           pointless<span className="dot">.</span> — presentations, minus the Power
         </span>
-        <span>Open source · MIT · Decks live on this server, nowhere else</span>
+        <span>Open source · MIT · Your content lives on this server, nowhere else</span>
       </footer>
     </div>
   );

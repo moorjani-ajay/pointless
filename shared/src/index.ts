@@ -1,29 +1,15 @@
-export type ThemeName = 'boardroom' | 'midnight';
-
-export interface Slide {
-  id: string;
-  position: number;
-  html: string;
-  notes: string | null;
-}
-
-export interface DeckSummary {
+export interface PresentationSummary {
   id: string;
   title: string;
-  theme: ThemeName;
   published: boolean;
   protected: boolean;
   shareToken: string;
-  slideCount: number;
-  firstSlideHtml: string | null;
+  /** Bytes of the stored HTML document; 0 means no content yet. */
+  htmlSize: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface Deck extends DeckSummary {
-  slides: Slide[];
+export interface Presentation extends PresentationSummary {
+  html: string;
 }
-
-/** Fixed slide canvas. Slides are authored against this and scaled to fit. */
-export const SLIDE_WIDTH = 1280;
-export const SLIDE_HEIGHT = 720;

@@ -7,15 +7,20 @@ import { verifyPassword, viewKey } from './auth.js';
 import * as store from './db.js';
 import { buildMcpServer } from './mcp.js';
 import { PdfUnavailableError, renderDeckPdf } from './pdf.js';
-import { renderPrintHtml } from './print.js';
-import { getAllThemesCss, getThemeCss, isTheme } from './themes.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
+/**
+ * Presentations are untrusted HTML with scripts enabled. They are only ever
+ * served with a CSP sandbox (and embedded via <iframe sandbox>), which gives
+ * them an opaque origin: no cookies, no same-origin API access, no parent.
+ */
+const DOC_CSP = 'sandbox allow-scripts allow-popups; frame-ancestors \'self\'';
+
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '5mb' }));
 
 function baseUrl(req: express.Request): string {
   return process.env.BASE_URL?.replace(/\/$/, '') ?? `${req.protocol}://${req.get('host')}`;
@@ -60,80 +65,81 @@ app.all('/mcp', (_req, res) => {
 // ---------- REST API (used by the web UI) ----------
 
 app.get('/api/decks', (_req, res) => {
-  res.json(store.listDecks());
+  res.json(store.listPresentations());
 });
 
 app.get('/api/decks/:id', (req, res) => {
-  const deck = store.getDeck(req.params.id);
-  if (!deck) return res.status(404).json({ error: 'Deck not found' });
-  res.json(deck);
+  const p = store.getPresentation(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Not found' });
+  const { html, ...meta } = p;
+  res.json(meta);
 });
 
 app.delete('/api/decks/:id', (req, res) => {
-  if (!store.deleteDeck(req.params.id)) return res.status(404).json({ error: 'Deck not found' });
+  if (!store.deletePresentation(req.params.id)) return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
 /**
- * Password gate for published decks: protected decks require the `k` proof
- * obtained from the unlock endpoint. Returns the deck, or null after having
- * written the error response.
+ * Password gate for published presentations: protected ones require the `k`
+ * proof from the unlock endpoint. Returns the presentation, or null after
+ * having written the error response.
  */
-function sharedDeckOrReject(req: express.Request, res: express.Response) {
-  const deck = store.getDeckByToken(req.params.token);
-  if (!deck || !deck.published) {
-    res.status(404).json({ error: 'Deck not found' });
+function sharedOrReject(req: express.Request, res: express.Response) {
+  const p = store.getPresentationByToken(req.params.token);
+  if (!p || !p.published) {
+    res.status(404).json({ error: 'Not found' });
     return null;
   }
-  const hash = store.getPasswordHash(deck.shareToken);
-  if (hash && req.query.k !== viewKey(hash, deck.shareToken)) {
+  const hash = store.getPasswordHash(p.shareToken);
+  if (hash && req.query.k !== viewKey(hash, p.shareToken)) {
     res.status(401).json({ error: 'Password required', protected: true });
     return null;
   }
-  return deck;
+  return p;
 }
 
 app.get('/api/shared/:token', (req, res) => {
-  const deck = sharedDeckOrReject(req, res);
-  if (deck) res.json(deck);
+  const p = sharedOrReject(req, res);
+  if (!p) return;
+  const { html, ...meta } = p;
+  res.json(meta);
 });
 
 app.post('/api/shared/:token/unlock', (req, res) => {
-  const deck = store.getDeckByToken(req.params.token);
-  if (!deck || !deck.published) return res.status(404).json({ error: 'Deck not found' });
-  const hash = store.getPasswordHash(deck.shareToken);
+  const p = store.getPresentationByToken(req.params.token);
+  if (!p || !p.published) return res.status(404).json({ error: 'Not found' });
+  const hash = store.getPasswordHash(p.shareToken);
   if (!hash) return res.json({ key: null });
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   if (!verifyPassword(password, hash)) {
     return res.status(401).json({ error: 'Wrong password' });
   }
-  res.json({ key: viewKey(hash, deck.shareToken) });
+  res.json({ key: viewKey(hash, p.shareToken) });
 });
 
-// ---------- Themes, print view, PDF ----------
+// ---------- Raw documents (always CSP-sandboxed) ----------
 
-app.get('/themes/all.css', (_req, res) => {
-  res.type('text/css').send(getAllThemesCss());
+app.get('/raw/deck/:id', (req, res) => {
+  const p = store.getPresentation(req.params.id);
+  if (!p) return res.status(404).send('Not found');
+  res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
 });
 
-app.get('/themes/:name.css', (req, res) => {
-  const name = req.params.name;
-  if (!isTheme(name)) return res.status(404).end();
-  res.type('text/css').send(getThemeCss(name));
+app.get('/raw/:token', (req, res) => {
+  const p = sharedOrReject(req, res);
+  if (!p) return;
+  res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
 });
 
-app.get('/print/:token', (req, res) => {
-  const deck = sharedDeckOrReject(req, res);
-  if (deck) res.type('html').send(renderPrintHtml(deck));
-});
-
+// Best-effort PDF: a print capture of the document's initial view.
 app.get('/d/:token.pdf', async (req, res) => {
-  const deck = sharedDeckOrReject(req, res);
-  if (!deck) return;
+  const p = sharedOrReject(req, res);
+  if (!p) return;
   try {
     const k = typeof req.query.k === 'string' ? `?k=${encodeURIComponent(req.query.k)}` : '';
-    const pdf = await renderDeckPdf(`http://127.0.0.1:${PORT}/print/${deck.shareToken}${k}`);
-    const filename = deck.title.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'deck';
+    const pdf = await renderDeckPdf(`http://127.0.0.1:${PORT}/raw/${p.shareToken}${k}`);
+    const filename = p.title.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'presentation';
     res
       .type('application/pdf')
       .setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`)
