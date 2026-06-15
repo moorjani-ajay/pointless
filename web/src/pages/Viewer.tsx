@@ -104,8 +104,11 @@ export function Viewer({ kind }: { kind: 'preview' | 'shared' }) {
   return (
     <div className="doc-host">
       {kind === 'preview' && (
-        <Link className="doc-home" to="/" title="Back to Pointless">
-          pointless<span className="dot">.</span>
+        <Link className="doc-back" to="/" title="Back to Pointless" aria-label="Back to Pointless">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+          <span className="doc-back-label">Back</span>
         </Link>
       )}
       <iframe className="doc-frame" title={meta.title} src={src} sandbox={SANDBOX} allowFullScreen />
