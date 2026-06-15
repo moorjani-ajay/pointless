@@ -20,7 +20,6 @@ COPY server/package.json server/
 RUN pnpm install --frozen-lockfile --prod --filter @pointless/server --filter @pointless/shared
 COPY --from=build /app/shared/dist shared/dist
 COPY --from=build /app/server/dist server/dist
-COPY --from=build /app/server/themes server/themes
 COPY --from=build /app/web/dist server/public
 VOLUME /data
 EXPOSE 3000
