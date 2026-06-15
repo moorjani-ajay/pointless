@@ -65,7 +65,7 @@ export function buildMcpServer(baseUrl: string): McpServer {
       inputSchema: { title: z.string().min(1).max(200).describe('Human-readable title') },
     },
     async ({ title }) => {
-      const p = store.createPresentation(title);
+      const p = await store.createPresentation(title);
       return ok({
         ...info(p, baseUrl),
         next: 'Write the complete HTML document and call set_html. Call get_design_guide first if you have not.',
@@ -92,10 +92,10 @@ export function buildMcpServer(baseUrl: string): McpServer {
       if (!/<html[\s>]/i.test(html)) {
         return fail('Send a complete HTML document including <html>, <head> and <body> — see get_design_guide.');
       }
-      if (!store.setHtml(presentation_id, html, title)) {
+      if (!(await store.setHtml(presentation_id, html, title))) {
         return fail(`No presentation with id ${presentation_id}`);
       }
-      const p = store.getPresentation(presentation_id)!;
+      const p = (await store.getPresentation(presentation_id))!;
       return ok({
         ...info(p, baseUrl),
         next: p.published
@@ -113,7 +113,7 @@ export function buildMcpServer(baseUrl: string): McpServer {
       inputSchema: { presentation_id: z.string() },
     },
     async ({ presentation_id }) => {
-      const p = store.getPresentation(presentation_id);
+      const p = await store.getPresentation(presentation_id);
       if (!p) return fail(`No presentation with id ${presentation_id}`);
       return ok({ ...info(p, baseUrl), html: p.html });
     }
@@ -126,13 +126,18 @@ export function buildMcpServer(baseUrl: string): McpServer {
       description: 'Lists all presentations on this server with ids, titles and share status.',
       inputSchema: {},
     },
-    async () => ok(store.listPresentations().map((p) => ({
-      presentation_id: p.id,
-      title: p.title,
-      published: p.published,
-      password_protected: p.protected,
-      updated_at: p.updatedAt,
-    })))
+    async () => {
+      const items = await store.listPresentations();
+      return ok(
+        items.map((p) => ({
+          presentation_id: p.id,
+          title: p.title,
+          published: p.published,
+          password_protected: p.protected,
+          updated_at: p.updatedAt,
+        }))
+      );
+    }
   );
 
   server.registerTool(
@@ -152,12 +157,12 @@ export function buildMcpServer(baseUrl: string): McpServer {
       },
     },
     async ({ presentation_id, password }) => {
-      const existing = store.getPresentation(presentation_id);
+      const existing = await store.getPresentation(presentation_id);
       if (!existing) return fail(`No presentation with id ${presentation_id}`);
       if (existing.htmlSize === 0) return fail('This presentation has no content yet — call set_html first.');
       const passwordHash =
         password === undefined ? undefined : password === '' ? null : hashPassword(password);
-      const p = store.publishPresentation(presentation_id, passwordHash)!;
+      const p = (await store.publishPresentation(presentation_id, passwordHash))!;
       return ok({
         share_url: `${baseUrl}/d/${p.shareToken}`,
         password_protected: p.protected,

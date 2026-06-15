@@ -64,19 +64,20 @@ app.all('/mcp', (_req, res) => {
 
 // ---------- REST API (used by the web UI) ----------
 
-app.get('/api/decks', (_req, res) => {
-  res.json(store.listPresentations());
+app.get('/api/decks', async (_req, res) => {
+  res.json(await store.listPresentations());
 });
 
-app.get('/api/decks/:id', (req, res) => {
-  const p = store.getPresentation(req.params.id);
+app.get('/api/decks/:id', async (req, res) => {
+  const p = await store.getPresentation(req.params.id);
   if (!p) return res.status(404).json({ error: 'Not found' });
   const { html, ...meta } = p;
   res.json(meta);
 });
 
-app.delete('/api/decks/:id', (req, res) => {
-  if (!store.deletePresentation(req.params.id)) return res.status(404).json({ error: 'Not found' });
+app.delete('/api/decks/:id', async (req, res) => {
+  if (!(await store.deletePresentation(req.params.id)))
+    return res.status(404).json({ error: 'Not found' });
   res.status(204).end();
 });
 
@@ -85,13 +86,13 @@ app.delete('/api/decks/:id', (req, res) => {
  * proof from the unlock endpoint. Returns the presentation, or null after
  * having written the error response.
  */
-function sharedOrReject(req: express.Request, res: express.Response) {
-  const p = store.getPresentationByToken(req.params.token);
+async function sharedOrReject(req: express.Request, res: express.Response) {
+  const p = await store.getPresentationByToken(req.params.token);
   if (!p || !p.published) {
     res.status(404).json({ error: 'Not found' });
     return null;
   }
-  const hash = store.getPasswordHash(p.shareToken);
+  const hash = await store.getPasswordHash(p.shareToken);
   if (hash && req.query.k !== viewKey(hash, p.shareToken)) {
     res.status(401).json({ error: 'Password required', protected: true });
     return null;
@@ -99,17 +100,17 @@ function sharedOrReject(req: express.Request, res: express.Response) {
   return p;
 }
 
-app.get('/api/shared/:token', (req, res) => {
-  const p = sharedOrReject(req, res);
+app.get('/api/shared/:token', async (req, res) => {
+  const p = await sharedOrReject(req, res);
   if (!p) return;
   const { html, ...meta } = p;
   res.json(meta);
 });
 
-app.post('/api/shared/:token/unlock', (req, res) => {
-  const p = store.getPresentationByToken(req.params.token);
+app.post('/api/shared/:token/unlock', async (req, res) => {
+  const p = await store.getPresentationByToken(req.params.token);
   if (!p || !p.published) return res.status(404).json({ error: 'Not found' });
-  const hash = store.getPasswordHash(p.shareToken);
+  const hash = await store.getPasswordHash(p.shareToken);
   if (!hash) return res.json({ key: null });
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
   if (!verifyPassword(password, hash)) {
@@ -120,21 +121,21 @@ app.post('/api/shared/:token/unlock', (req, res) => {
 
 // ---------- Raw documents (always CSP-sandboxed) ----------
 
-app.get('/raw/deck/:id', (req, res) => {
-  const p = store.getPresentation(req.params.id);
+app.get('/raw/deck/:id', async (req, res) => {
+  const p = await store.getPresentation(req.params.id);
   if (!p) return res.status(404).send('Not found');
   res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
 });
 
-app.get('/raw/:token', (req, res) => {
-  const p = sharedOrReject(req, res);
+app.get('/raw/:token', async (req, res) => {
+  const p = await sharedOrReject(req, res);
   if (!p) return;
   res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
 });
 
 // Best-effort PDF: a print capture of the document's initial view.
 app.get('/d/:token.pdf', async (req, res) => {
-  const p = sharedOrReject(req, res);
+  const p = await sharedOrReject(req, res);
   if (!p) return;
   try {
     const k = typeof req.query.k === 'string' ? `?k=${encodeURIComponent(req.query.k)}` : '';
@@ -170,7 +171,15 @@ if (webDist) {
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`Pointless listening on http://localhost:${PORT}`);
-  console.log(`  MCP endpoint: http://localhost:${PORT}/mcp`);
+async function main() {
+  await store.init();
+  app.listen(PORT, () => {
+    console.log(`Pointless listening on http://localhost:${PORT}`);
+    console.log(`  MCP endpoint: http://localhost:${PORT}/mcp`);
+  });
+}
+
+main().catch((err) => {
+  console.error('Failed to start Pointless:', err);
+  process.exit(1);
 });

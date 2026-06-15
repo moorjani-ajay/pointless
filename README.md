@@ -22,7 +22,9 @@ keyboard navigation, generated in one conversation.
 
 ## How it works
 
-- **One server, one Docker image.** Express + SQLite + a built-in web UI.
+- **One stateless server.** Express + PostgreSQL + a built-in web UI. The app
+  keeps no local state — point `DATABASE_URL` at a Postgres container or a
+  hosted instance (RDS, etc.).
 - **A presentation is one complete, self-contained HTML document** — CSS and
   JS inline, scripts allowed. The MCP `get_design_guide` tool gives the LLM
   the authoring contract: self-containment, viewport rules, house light/dark
@@ -45,14 +47,28 @@ keyboard navigation, generated in one conversation.
 
 ## Run it
 
+The app is stateless and needs a PostgreSQL database, configured with
+`DATABASE_URL`. The quickest way to run both together is Docker Compose:
+
 ```sh
-docker build -t pointless .
-docker run -d -p 3000:3000 -v pointless-data:/data \
-  -e BASE_URL=https://pointless.yourcompany.com pointless
+docker compose up --build
+# app on http://localhost:3000, Postgres running alongside it
 ```
 
-`BASE_URL` is what publish links are minted with; omit it to derive from the
-request host.
+To run the app against an existing/hosted Postgres instead:
+
+```sh
+docker build -t pointless .
+docker run -d -p 3000:3000 \
+  -e DATABASE_URL=postgres://user:pass@your-db-host:5432/pointless \
+  -e DATABASE_SSL=true \
+  -e BASE_URL=https://pointless.yourcompany.com \
+  pointless
+```
+
+`DATABASE_URL` is required. Set `DATABASE_SSL=true` for hosted databases that
+require TLS (e.g. RDS). `BASE_URL` is what publish links are minted with; omit
+it to derive from the request host.
 
 ### Connect an LLM
 
@@ -70,13 +86,15 @@ For Claude Desktop / claude.ai: Settings → Connectors → Add custom connector
 ```sh
 pnpm install
 pnpm --filter @pointless/shared build
+docker compose up -d db    # local Postgres on :5432
+export DATABASE_URL=postgres://pointless:pointless@localhost:5432/pointless
 pnpm dev           # server on :3000 (tsx watch)
 pnpm dev:web       # vite dev server on :5173, proxies /api + /raw + /mcp
 ```
 
 PDF capture locally needs Chromium once: `npx playwright install chromium`.
 
-Repo layout: `server/` (Express, MCP, SQLite, PDF capture), `web/` (React
+Repo layout: `server/` (Express, MCP, PostgreSQL, PDF capture), `web/` (React
 landing + viewer host), `shared/` (types), `examples/` (sample
 presentations).
 

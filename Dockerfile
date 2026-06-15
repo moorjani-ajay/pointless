@@ -15,7 +15,7 @@ RUN pnpm -r build
 
 FROM base
 WORKDIR /app
-ENV NODE_ENV=production DATA_DIR=/data PORT=3000
+ENV NODE_ENV=production PORT=3000
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 COPY shared/package.json shared/
 COPY server/package.json server/
@@ -24,6 +24,5 @@ COPY --from=build /app/shared/dist shared/dist
 COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/server/themes server/themes
 COPY --from=build /app/web/dist server/public
-VOLUME /data
 EXPOSE 3000
 CMD ["node", "server/dist/index.js"]
