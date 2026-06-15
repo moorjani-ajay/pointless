@@ -6,7 +6,13 @@ import { ApiError, getDeck, getSharedDeck, unlockDeck } from '../api';
 /** Untrusted presentation documents always render through this sandbox. */
 const SANDBOX = 'allow-scripts allow-popups';
 
-function PasswordGate({ onSubmit, error }: { onSubmit: (pw: string) => void; error: string | null }) {
+function PasswordGate({
+  onSubmit,
+  error,
+}: {
+  onSubmit: (pw: string) => void;
+  error: string | null;
+}) {
   const [pw, setPw] = useState('');
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -70,7 +76,11 @@ export function Viewer({ kind }: { kind: 'preview' | 'shared' }) {
       setGateError(null);
       setViewKey(key);
     } catch (e) {
-      setGateError(e instanceof ApiError && e.status === 401 ? 'Wrong password — try again.' : (e as Error).message);
+      setGateError(
+        e instanceof ApiError && e.status === 401
+          ? 'Wrong password — try again.'
+          : (e as Error).message
+      );
     }
   };
 
@@ -79,7 +89,9 @@ export function Viewer({ kind }: { kind: 'preview' | 'shared' }) {
   if (error) {
     return (
       <div className="viewer-message">
-        <p>{error === 'Not found' ? 'This presentation does not exist or is not published.' : error}</p>
+        <p>
+          {error === 'Not found' ? 'This presentation does not exist or is not published.' : error}
+        </p>
         {kind === 'preview' && <Link to="/">Back to home</Link>}
       </div>
     );
@@ -111,7 +123,13 @@ export function Viewer({ kind }: { kind: 'preview' | 'shared' }) {
           <span className="doc-back-label">Back</span>
         </Link>
       )}
-      <iframe className="doc-frame" title={meta.title} src={src} sandbox={SANDBOX} allowFullScreen />
+      <iframe
+        className="doc-frame"
+        title={meta.title}
+        src={src}
+        sandbox={SANDBOX}
+        allowFullScreen
+      />
     </div>
   );
 }

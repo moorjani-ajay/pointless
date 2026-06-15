@@ -47,7 +47,13 @@ function DocThumb({ deck }: { deck: PresentationSummary }) {
   );
 }
 
-function DeckCard({ deck, onDelete }: { deck: PresentationSummary; onDelete: (d: PresentationSummary) => void }) {
+function DeckCard({
+  deck,
+  onDelete,
+}: {
+  deck: PresentationSummary;
+  onDelete: (d: PresentationSummary) => void;
+}) {
   const shareUrl = `${window.location.origin}/d/${deck.shareToken}`;
   return (
     <li className="deck-card">
@@ -127,7 +133,11 @@ export function Home() {
         </div>
         <div className="hero-art rise d3" aria-hidden="true">
           <div className="mock mock-back">
-            <div className="mock-bar"><i /><i /><i /></div>
+            <div className="mock-bar">
+              <i />
+              <i />
+              <i />
+            </div>
             <div className="mock-body mock-dark">
               <div className="mock-kicker" />
               <div className="mock-headline" />
@@ -136,12 +146,20 @@ export function Home() {
             </div>
           </div>
           <div className="mock mock-front">
-            <div className="mock-bar"><i /><i /><i /></div>
+            <div className="mock-bar">
+              <i />
+              <i />
+              <i />
+            </div>
             <div className="mock-body mock-light">
               <div className="mock-kicker" />
               <div className="mock-headline" />
               <div className="mock-rule" />
-              <div className="mock-tiles"><i /><i /><i /></div>
+              <div className="mock-tiles">
+                <i />
+                <i />
+                <i />
+              </div>
             </div>
           </div>
         </div>
@@ -205,10 +223,22 @@ export function Home() {
           the content calls for, in whatever aesthetic you ask for.
         </p>
         <div className="aesthetic-row">
-          <div className="aesthetic-chip"><strong>Editorial</strong><span>paper, serifs, hairlines</span></div>
-          <div className="aesthetic-chip"><strong>After Hours</strong><span>deep blues, gold, glow</span></div>
-          <div className="aesthetic-chip"><strong>Brutalist</strong><span>mono, raw contrast</span></div>
-          <div className="aesthetic-chip"><strong>Yours</strong><span>just describe it</span></div>
+          <div className="aesthetic-chip">
+            <strong>Editorial</strong>
+            <span>paper, serifs, hairlines</span>
+          </div>
+          <div className="aesthetic-chip">
+            <strong>After Hours</strong>
+            <span>deep blues, gold, glow</span>
+          </div>
+          <div className="aesthetic-chip">
+            <strong>Brutalist</strong>
+            <span>mono, raw contrast</span>
+          </div>
+          <div className="aesthetic-chip">
+            <strong>Yours</strong>
+            <span>just describe it</span>
+          </div>
         </div>
       </section>
 

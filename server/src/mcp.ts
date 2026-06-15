@@ -13,7 +13,9 @@ type ToolResult = {
 };
 
 const ok = (data: unknown): ToolResult => ({
-  content: [{ type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) }],
+  content: [
+    { type: 'text', text: typeof data === 'string' ? data : JSON.stringify(data, null, 2) },
+  ],
 });
 
 const fail = (message: string): ToolResult => ({
@@ -61,7 +63,8 @@ export function buildMcpServer(baseUrl: string): McpServer {
     'create_presentation',
     {
       title: 'Create a new presentation',
-      description: 'Creates an empty presentation and returns its id. Then send the full HTML document with set_html.',
+      description:
+        'Creates an empty presentation and returns its id. Then send the full HTML document with set_html.',
       inputSchema: { title: z.string().min(1).max(200).describe('Human-readable title') },
     },
     async ({ title }) => {
@@ -90,7 +93,9 @@ export function buildMcpServer(baseUrl: string): McpServer {
         return fail('Document exceeds 2MB. Trim embedded data URIs or split the content.');
       }
       if (!/<html[\s>]/i.test(html)) {
-        return fail('Send a complete HTML document including <html>, <head> and <body> — see get_design_guide.');
+        return fail(
+          'Send a complete HTML document including <html>, <head> and <body> — see get_design_guide.'
+        );
       }
       if (!store.setHtml(presentation_id, html, title)) {
         return fail(`No presentation with id ${presentation_id}`);
@@ -109,7 +114,8 @@ export function buildMcpServer(baseUrl: string): McpServer {
     'get_presentation',
     {
       title: 'Get a presentation',
-      description: 'Returns metadata and the current HTML document. Use it to read state before editing.',
+      description:
+        'Returns metadata and the current HTML document. Use it to read state before editing.',
       inputSchema: { presentation_id: z.string() },
     },
     async ({ presentation_id }) => {
@@ -126,13 +132,16 @@ export function buildMcpServer(baseUrl: string): McpServer {
       description: 'Lists all presentations on this server with ids, titles and share status.',
       inputSchema: {},
     },
-    async () => ok(store.listPresentations().map((p) => ({
-      presentation_id: p.id,
-      title: p.title,
-      published: p.published,
-      password_protected: p.protected,
-      updated_at: p.updatedAt,
-    })))
+    async () =>
+      ok(
+        store.listPresentations().map((p) => ({
+          presentation_id: p.id,
+          title: p.title,
+          published: p.published,
+          password_protected: p.protected,
+          updated_at: p.updatedAt,
+        }))
+      )
   );
 
   server.registerTool(
@@ -148,13 +157,16 @@ export function buildMcpServer(baseUrl: string): McpServer {
           .string()
           .max(200)
           .optional()
-          .describe('Optional view password. Empty string removes protection; omit to keep current setting.'),
+          .describe(
+            'Optional view password. Empty string removes protection; omit to keep current setting.'
+          ),
       },
     },
     async ({ presentation_id, password }) => {
       const existing = store.getPresentation(presentation_id);
       if (!existing) return fail(`No presentation with id ${presentation_id}`);
-      if (existing.htmlSize === 0) return fail('This presentation has no content yet — call set_html first.');
+      if (existing.htmlSize === 0)
+        return fail('This presentation has no content yet — call set_html first.');
       const passwordHash =
         password === undefined ? undefined : password === '' ? null : hashPassword(password);
       const p = store.publishPresentation(presentation_id, passwordHash)!;
