@@ -40,8 +40,7 @@ keyboard navigation, generated in one conversation.
   scrypt-hashed at rest); viewers are prompted before it opens.
 - **Web UI**: a landing page that onboards new users (copy the MCP endpoint,
   connect Claude, ask), plus a grid of your presentations with live
-  thumbnails. `/d/<token>.pdf` gives a best-effort PDF capture of the
-  initial view.
+  thumbnails.
 
 ## Run it
 
@@ -74,9 +73,7 @@ pnpm dev           # server on :3000 (tsx watch)
 pnpm dev:web       # vite dev server on :5173, proxies /api + /raw + /mcp
 ```
 
-PDF capture locally needs Chromium once: `npx playwright install chromium`.
-
-Repo layout: `server/` (Express, MCP, SQLite, PDF capture), `web/` (React
+Repo layout: `server/` (Express, MCP, SQLite), `web/` (React
 landing + viewer host), `shared/` (types), `examples/` (sample
 presentations).
 
