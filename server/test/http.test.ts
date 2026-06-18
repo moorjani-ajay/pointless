@@ -4,10 +4,14 @@ import { createApp, DOC_CSP } from '../src/app';
 import * as store from '../src/db';
 import { hashPassword, viewKey } from '../src/auth';
 
-const app = createApp();
 const DOC = '<!doctype html><html><body>Hello</body></html>';
 
+// Fresh app per test so the rate limiter's in-memory counters reset and don't
+// bleed across cases.
+let app: ReturnType<typeof createApp>;
+
 beforeEach(() => {
+  app = createApp();
   for (const p of store.listPresentations()) store.deletePresentation(p.id);
 });
 
@@ -121,6 +125,21 @@ describe('password gate for shared decks', () => {
     store.setHtml(draft.id, DOC); // created but never published
     expect((await request(app).get(`/api/shared/${draft.shareToken}`)).status).toBe(404);
     expect((await request(app).get('/api/shared/unknown-token')).status).toBe(404);
+  });
+});
+
+describe('rate limiting', () => {
+  it('throttles repeated unlock attempts to deter brute-forcing', async () => {
+    const deck = seedProtectedDeck();
+    let lastStatus = 0;
+    // The unlock limiter allows 10 attempts; the 11th+ should be rejected.
+    for (let i = 0; i < 12; i++) {
+      const res = await request(app)
+        .post(`/api/shared/${deck.shareToken}/unlock`)
+        .send({ password: 'wrong' });
+      lastStatus = res.status;
+    }
+    expect(lastStatus).toBe(429);
   });
 });
 

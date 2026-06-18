@@ -1,5 +1,6 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,25 @@ export function createApp(options: AppOptions = {}): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '5mb' }));
+
+  // A general ceiling on every route except /mcp (which the authoring agent
+  // drives and which carries no credentials), plus a strict gate on password
+  // attempts so protected share links can't be brute-forced.
+  const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 300,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    skip: (req) => req.path === '/mcp',
+  });
+  const unlockLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'Too many unlock attempts. Try again later.' },
+  });
+  app.use(generalLimiter);
 
   function baseUrl(req: express.Request): string {
     return process.env.BASE_URL?.replace(/\/$/, '') ?? `${req.protocol}://${req.get('host')}`;
@@ -117,7 +137,7 @@ export function createApp(options: AppOptions = {}): express.Express {
     res.json(meta);
   });
 
-  app.post('/api/shared/:token/unlock', (req, res) => {
+  app.post('/api/shared/:token/unlock', unlockLimiter, (req, res) => {
     const p = store.getPresentationByToken(req.params.token);
     if (!p || !p.published) return res.status(404).json({ error: 'Not found' });
     const hash = store.getPasswordHash(p.shareToken);

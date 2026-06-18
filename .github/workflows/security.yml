@@ -37,4 +37,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       # Fail only on high/critical advisories; informational ones shouldn't block PRs.
+      # Specific advisories deemed not applicable are listed under
+      # pnpm.auditConfig.ignoreGhsas in package.json (currently the esbuild
+      # dev-server CORS advisory, which only affects local dev, not prod/CI).
       - run: pnpm audit --audit-level high
