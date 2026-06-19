@@ -2,6 +2,7 @@ import type { PresentationSummary } from '@pointless/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { deleteDeck, listDecks } from '../api';
+import { withAdmin } from '../admin';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -37,7 +38,7 @@ function DocThumb({ deck }: { deck: PresentationSummary }) {
     <div className="thumb-clip" aria-hidden="true">
       <iframe
         className="thumb-frame"
-        src={`/raw/deck/${deck.id}`}
+        src={withAdmin(`/raw/deck/${deck.id}`)}
         sandbox="allow-scripts"
         tabIndex={-1}
         loading="lazy"

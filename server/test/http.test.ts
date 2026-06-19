@@ -128,6 +128,53 @@ describe('password gate for shared decks', () => {
   });
 });
 
+describe('operator surface auth (ADMIN_TOKEN)', () => {
+  const TOKEN = 'super-secret-admin';
+
+  // createApp reads ADMIN_TOKEN at construction; build an app with it set
+  // without leaking the env var into the loopback-default tests above.
+  function adminApp() {
+    process.env.ADMIN_TOKEN = TOKEN;
+    try {
+      return createApp();
+    } finally {
+      delete process.env.ADMIN_TOKEN;
+    }
+  }
+
+  it('401s operator routes without the token', async () => {
+    expect((await request(adminApp()).get('/api/decks')).status).toBe(401);
+  });
+
+  it('allows operator routes with a valid Bearer token', async () => {
+    const res = await request(adminApp()).get('/api/decks').set('Authorization', `Bearer ${TOKEN}`);
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects a forged token', async () => {
+    const res = await request(adminApp()).get('/api/decks').set('Authorization', 'Bearer wrong');
+    expect(res.status).toBe(401);
+  });
+
+  it('accepts the token via ?admin= for header-less contexts (iframes)', async () => {
+    const app = adminApp();
+    const p = store.createPresentation('Preview');
+    store.setHtml(p.id, DOC);
+    const res = await request(app).get(`/raw/deck/${p.id}?admin=${TOKEN}`);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-security-policy']).toBe(DOC_CSP);
+  });
+
+  it('does not leak a protected deck via /raw/deck/:id when a token is required', async () => {
+    const app = adminApp();
+    const deck = seedProtectedDeck();
+    // The operator-preview route bypasses the share password, so it must be
+    // refused without the operator token — no token, and a wrong token.
+    expect((await request(app).get(`/raw/deck/${deck.id}`)).status).toBe(401);
+    expect((await request(app).get(`/raw/deck/${deck.id}?admin=nope`)).status).toBe(401);
+  });
+});
+
 describe('rate limiting', () => {
   it('throttles repeated unlock attempts to deter brute-forcing', async () => {
     const deck = seedProtectedDeck();
