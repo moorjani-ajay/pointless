@@ -53,6 +53,13 @@ docker run -d -p 3000:3000 -v pointless-data:/data \
 `BASE_URL` is what publish links are minted with; omit it to derive from the
 request host.
 
+`ADMIN_TOKEN` gates the operator surface (deck list/delete and preview-by-id).
+Set it whenever the server is reachable beyond loopback, then open the manager
+UI once as `https://your-host/?admin=<token>` — the token is stored locally and
+attached to operator requests thereafter. When unset, the operator routes are
+reachable only from `127.0.0.1`, so a purely local instance needs no config.
+Share links (and their optional passwords) are unaffected either way.
+
 ### Connect an LLM
 
 Point any MCP client at `http://your-host:3000/mcp`. For Claude Code:
@@ -79,13 +86,15 @@ presentations).
 
 ## Security model (v1)
 
-Built for deployment **inside a trusted network**. Anyone who can reach the
-server can create presentations; anyone with a share link can view that
-presentation unless it carries a password. Presentation documents may contain
-arbitrary JavaScript — that is the point — and are therefore always isolated
-behind a CSP sandbox / sandboxed iframe with an opaque origin. Creator auth
-(API keys / OAuth) is on the roadmap — the schema already carries a nullable
-`owner` for it.
+Built for deployment **inside a trusted network**. Authoring happens over MCP;
+anyone with a share link can view that presentation unless it carries a
+password. The operator surface (listing/deleting decks and previewing a deck by
+its internal id, which bypasses the share password) is gated by `ADMIN_TOKEN`
+when set, and is loopback-only otherwise — so it is never exposed unguarded on a
+public host. Presentation documents may contain arbitrary JavaScript — that is
+the point — and are therefore always isolated behind a CSP sandbox / sandboxed
+iframe with an opaque origin. Per-creator auth (API keys / OAuth) is on the
+roadmap — the schema already carries a nullable `owner` for it.
 
 ## License
 

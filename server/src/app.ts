@@ -4,7 +4,7 @@ import rateLimit from 'express-rate-limit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verifyPassword, viewKey } from './auth.js';
+import { safeEqual, verifyPassword, viewKey } from './auth.js';
 import * as store from './db.js';
 import { buildMcpServer } from './mcp.js';
 
@@ -49,6 +49,28 @@ export function createApp(): express.Express {
     return process.env.BASE_URL?.replace(/\/$/, '') ?? `${req.protocol}://${req.get('host')}`;
   }
 
+  // The operator surface — deck management and preview-by-id — carries no
+  // per-deck credential, unlike share links (which are gated by token +
+  // optional password). Guard it: when ADMIN_TOKEN is set it is required (as a
+  // Bearer header, or `?admin=` for contexts like <iframe> that can't send
+  // headers); when unset, these routes are reachable only from loopback so a
+  // local operator needs no configuration.
+  const adminToken = process.env.ADMIN_TOKEN;
+
+  function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction) {
+    if (adminToken) {
+      const bearer = req.get('authorization')?.replace(/^Bearer\s+/i, '');
+      const provided = bearer ?? (typeof req.query.admin === 'string' ? req.query.admin : '');
+      if (provided && safeEqual(provided, adminToken)) return next();
+      return res.status(401).json({ error: 'Admin authentication required' });
+    }
+    const ip = req.socket.remoteAddress ?? '';
+    if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return next();
+    return res
+      .status(403)
+      .json({ error: 'Admin API is loopback-only; set ADMIN_TOKEN to allow remote access' });
+  }
+
   // ---------- MCP (Streamable HTTP, stateless: fresh server+transport per request) ----------
 
   app.post('/mcp', async (req, res) => {
@@ -87,18 +109,18 @@ export function createApp(): express.Express {
 
   // ---------- REST API (used by the web UI) ----------
 
-  app.get('/api/decks', (_req, res) => {
+  app.get('/api/decks', requireAdmin, (_req, res) => {
     res.json(store.listPresentations());
   });
 
-  app.get('/api/decks/:id', (req, res) => {
+  app.get('/api/decks/:id', requireAdmin, (req, res) => {
     const p = store.getPresentation(req.params.id);
     if (!p) return res.status(404).json({ error: 'Not found' });
     const { html, ...meta } = p;
     res.json(meta);
   });
 
-  app.delete('/api/decks/:id', (req, res) => {
+  app.delete('/api/decks/:id', requireAdmin, (req, res) => {
     if (!store.deletePresentation(req.params.id))
       return res.status(404).json({ error: 'Not found' });
     res.status(204).end();
@@ -116,7 +138,8 @@ export function createApp(): express.Express {
       return null;
     }
     const hash = store.getPasswordHash(p.shareToken);
-    if (hash && req.query.k !== viewKey(hash, p.shareToken)) {
+    const k = typeof req.query.k === 'string' ? req.query.k : '';
+    if (hash && !safeEqual(k, viewKey(hash, p.shareToken))) {
       res.status(401).json({ error: 'Password required', protected: true });
       return null;
     }
@@ -144,7 +167,7 @@ export function createApp(): express.Express {
 
   // ---------- Raw documents (always CSP-sandboxed) ----------
 
-  app.get('/raw/deck/:id', (req, res) => {
+  app.get('/raw/deck/:id', requireAdmin, (req, res) => {
     const p = store.getPresentation(req.params.id);
     if (!p) return res.status(404).send('Not found');
     res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
