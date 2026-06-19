@@ -117,15 +117,16 @@ export function publishPresentation(id: string, passwordHash?: string | null): P
   if (passwordHash === undefined) {
     db.prepare('UPDATE decks SET published = 1, updated_at = ? WHERE id = ?').run(now(), id);
   } else {
-    db.prepare('UPDATE decks SET published = 1, password_hash = ?, updated_at = ? WHERE id = ?')
-      .run(passwordHash, now(), id);
+    db.prepare(
+      'UPDATE decks SET published = 1, password_hash = ?, updated_at = ? WHERE id = ?'
+    ).run(passwordHash, now(), id);
   }
   return getPresentation(id);
 }
 
 export function getPasswordHash(shareToken: string): string | null {
-  const row = db.prepare('SELECT password_hash FROM decks WHERE share_token = ?').get(shareToken) as
-    | { password_hash: string | null }
-    | undefined;
+  const row = db
+    .prepare('SELECT password_hash FROM decks WHERE share_token = ?')
+    .get(shareToken) as { password_hash: string | null } | undefined;
   return row?.password_hash ?? null;
 }

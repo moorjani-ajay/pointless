@@ -1,7 +1,10 @@
 import type { PresentationSummary } from '@pointless/shared';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(
+    public status: number,
+    message: string
+  ) {
     super(message);
   }
 }
@@ -9,7 +12,10 @@ export class ApiError extends Error {
 async function get<T>(url: string): Promise<T> {
   const res = await fetch(url);
   if (!res.ok) {
-    throw new ApiError(res.status, res.status === 404 ? 'Not found' : `Request failed (${res.status})`);
+    throw new ApiError(
+      res.status,
+      res.status === 404 ? 'Not found' : `Request failed (${res.status})`
+    );
   }
   return res.json() as Promise<T>;
 }

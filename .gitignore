@@ -4,3 +4,10 @@ data/
 *.log
 .DS_Store
 .env
+
+# Test & CI artifacts
+coverage/
+playwright-report/
+test-results/
+e2e/.data/
+*.db

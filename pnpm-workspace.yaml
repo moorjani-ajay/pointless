@@ -5,3 +5,8 @@ packages:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+auditConfig:
+  # esbuild dev-server CORS advisory — only affects local dev, not prod/CI.
+  # Reaches us transitively via vitest/vite (devDependencies only).
+  ignoreGhsas:
+    - GHSA-gv7w-rqvm-qjhr

@@ -1,0 +1,11 @@
+dist
+node_modules
+coverage
+pnpm-lock.yaml
+web/dist
+examples
+playwright-report
+test-results
+.claude
+data
+*.db
