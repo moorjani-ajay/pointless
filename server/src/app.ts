@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 import { verifyPassword, viewKey } from './auth.js';
 import * as store from './db.js';
 import { buildMcpServer } from './mcp.js';
-import { PdfUnavailableError, renderDeckPdf } from './pdf.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -18,17 +17,11 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
  */
 export const DOC_CSP = "sandbox allow-scripts allow-popups; frame-ancestors 'self'";
 
-export interface AppOptions {
-  /** Loopback port the PDF renderer fetches the document from. Defaults to PORT/3000. */
-  port?: number;
-}
-
 /**
  * Build the Pointless Express app without binding a port. `index.ts` wraps
  * this in `listen`; tests drive it directly with Supertest.
  */
-export function createApp(options: AppOptions = {}): express.Express {
-  const port = options.port ?? Number(process.env.PORT ?? 3000);
+export function createApp(): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '5mb' }));
@@ -161,25 +154,6 @@ export function createApp(options: AppOptions = {}): express.Express {
     const p = sharedOrReject(req, res);
     if (!p) return;
     res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
-  });
-
-  // Best-effort PDF: a print capture of the document's initial view.
-  app.get('/d/:token.pdf', async (req, res) => {
-    const p = sharedOrReject(req, res);
-    if (!p) return;
-    try {
-      const k = typeof req.query.k === 'string' ? `?k=${encodeURIComponent(req.query.k)}` : '';
-      const pdf = await renderDeckPdf(`http://127.0.0.1:${port}/raw/${p.shareToken}${k}`);
-      const filename = p.title.replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'presentation';
-      res
-        .type('application/pdf')
-        .setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`)
-        .send(pdf);
-    } catch (err) {
-      if (err instanceof PdfUnavailableError) return res.status(501).send(err.message);
-      console.error('PDF render failed:', err);
-      res.status(500).send('PDF render failed');
-    }
   });
 
   // ---------- Web UI (built SPA) ----------

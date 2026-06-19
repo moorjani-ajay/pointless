@@ -7,11 +7,11 @@ up and what we expect before a change can be merged.
 
 Pointless is a pnpm monorepo:
 
-| Package             | What it is                                             |
-| ------------------- | ------------------------------------------------------ |
-| `@pointless/shared` | Types shared between server and web                    |
-| `@pointless/server` | Express + MCP server, SQLite storage, share links, PDF |
-| `@pointless/web`    | React + Vite single-page app (the viewer/manager UI)   |
+| Package             | What it is                                           |
+| ------------------- | ---------------------------------------------------- |
+| `@pointless/shared` | Types shared between server and web                  |
+| `@pointless/server` | Express + MCP server, SQLite storage, share links    |
+| `@pointless/web`    | React + Vite single-page app (the viewer/manager UI) |
 
 ## Getting started
 

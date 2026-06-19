@@ -1,6 +1,4 @@
-# Playwright base image ships Chromium + all system deps for PDF export.
-# Keep this tag in sync with the playwright version in server/package.json.
-FROM mcr.microsoft.com/playwright:v1.60.0-noble AS base
+FROM node:24-bookworm-slim AS base
 RUN corepack enable
 
 FROM base AS build
@@ -22,7 +20,6 @@ COPY server/package.json server/
 RUN pnpm install --frozen-lockfile --prod --filter @pointless/server --filter @pointless/shared
 COPY --from=build /app/shared/dist shared/dist
 COPY --from=build /app/server/dist server/dist
-COPY --from=build /app/server/themes server/themes
 COPY --from=build /app/web/dist server/public
 VOLUME /data
 EXPOSE 3000

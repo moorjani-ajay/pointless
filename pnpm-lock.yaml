@@ -93,10 +93,6 @@ importers:
       typescript:
         specifier: ^5.8.0
         version: 5.9.3
-    optionalDependencies:
-      playwright:
-        specifier: ^1.53.0
-        version: 1.60.0
 
   shared:
     devDependencies:
