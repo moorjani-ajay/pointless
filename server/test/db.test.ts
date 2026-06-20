@@ -2,16 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import * as store from '../src/db';
 import { hashPassword } from '../src/auth';
 
-beforeEach(() => {
-  // The setup file gives this suite its own DATA_DIR, but tests within the
-  // file share one db — start each from a clean slate.
-  for (const p of store.listPresentations()) store.deletePresentation(p.id);
+beforeEach(async () => {
+  // Tests within the file share one database — start each from a clean slate.
+  for (const p of await store.listPresentations()) await store.deletePresentation(p.id);
 });
 
 describe('createPresentation', () => {
-  it('starts unpublished, unprotected and empty, with a unique share token', () => {
-    const a = store.createPresentation('Deck A');
-    const b = store.createPresentation('Deck B');
+  it('starts unpublished, unprotected and empty, with a unique share token', async () => {
+    const a = await store.createPresentation('Deck A');
+    const b = await store.createPresentation('Deck B');
     expect(a.title).toBe('Deck A');
     expect(a.published).toBe(false);
     expect(a.protected).toBe(false);
@@ -25,85 +24,85 @@ describe('createPresentation', () => {
 });
 
 describe('lookups', () => {
-  it('fetches by id and by share token, and returns null for misses', () => {
-    const p = store.createPresentation('Find me');
-    expect(store.getPresentation(p.id)?.id).toBe(p.id);
-    expect(store.getPresentationByToken(p.shareToken)?.id).toBe(p.id);
-    expect(store.getPresentation('nope')).toBeNull();
-    expect(store.getPresentationByToken('nope')).toBeNull();
+  it('fetches by id and by share token, and returns null for misses', async () => {
+    const p = await store.createPresentation('Find me');
+    expect((await store.getPresentation(p.id))?.id).toBe(p.id);
+    expect((await store.getPresentationByToken(p.shareToken))?.id).toBe(p.id);
+    expect(await store.getPresentation('nope')).toBeNull();
+    expect(await store.getPresentationByToken('nope')).toBeNull();
   });
 
-  it('lists presentations newest-updated first', () => {
-    const a = store.createPresentation('first');
-    const b = store.createPresentation('second');
-    store.setHtml(a.id, '<html>touched last</html>');
-    const ids = store.listPresentations().map((p) => p.id);
+  it('lists presentations newest-updated first', async () => {
+    const a = await store.createPresentation('first');
+    const b = await store.createPresentation('second');
+    await store.setHtml(a.id, '<html>touched last</html>');
+    const ids = (await store.listPresentations()).map((p) => p.id);
     expect(ids).toEqual([a.id, b.id]);
   });
 });
 
 describe('setHtml', () => {
-  it('stores the document and reports its byte size (multibyte aware)', () => {
-    const p = store.createPresentation('Sizes');
-    expect(store.setHtml(p.id, '<html>café</html>')).toBe(true);
-    const updated = store.getPresentation(p.id)!;
+  it('stores the document and reports its byte size (multibyte aware)', async () => {
+    const p = await store.createPresentation('Sizes');
+    expect(await store.setHtml(p.id, '<html>café</html>')).toBe(true);
+    const updated = (await store.getPresentation(p.id))!;
     expect(updated.html).toBe('<html>café</html>');
     // "café" is 5 bytes in UTF-8, not 4 chars.
     expect(updated.htmlSize).toBe(Buffer.byteLength('<html>café</html>', 'utf8'));
   });
 
-  it('keeps the existing title when none is supplied, and updates it when given', () => {
-    const p = store.createPresentation('Original');
-    store.setHtml(p.id, '<html></html>');
-    expect(store.getPresentation(p.id)!.title).toBe('Original');
-    store.setHtml(p.id, '<html></html>', 'Renamed');
-    expect(store.getPresentation(p.id)!.title).toBe('Renamed');
+  it('keeps the existing title when none is supplied, and updates it when given', async () => {
+    const p = await store.createPresentation('Original');
+    await store.setHtml(p.id, '<html></html>');
+    expect((await store.getPresentation(p.id))!.title).toBe('Original');
+    await store.setHtml(p.id, '<html></html>', 'Renamed');
+    expect((await store.getPresentation(p.id))!.title).toBe('Renamed');
   });
 
-  it('returns false for an unknown id', () => {
-    expect(store.setHtml('ghost', '<html></html>')).toBe(false);
+  it('returns false for an unknown id', async () => {
+    expect(await store.setHtml('ghost', '<html></html>')).toBe(false);
   });
 });
 
 describe('deletePresentation', () => {
-  it('returns true when a row was removed, false otherwise', () => {
-    const p = store.createPresentation('Doomed');
-    expect(store.deletePresentation(p.id)).toBe(true);
-    expect(store.getPresentation(p.id)).toBeNull();
-    expect(store.deletePresentation(p.id)).toBe(false);
+  it('returns true when a row was removed, false otherwise', async () => {
+    const p = await store.createPresentation('Doomed');
+    expect(await store.deletePresentation(p.id)).toBe(true);
+    expect(await store.getPresentation(p.id)).toBeNull();
+    expect(await store.deletePresentation(p.id)).toBe(false);
   });
 });
 
 describe('publishPresentation password semantics', () => {
-  it('string hash sets protection and publishes', () => {
-    const p = store.createPresentation('Protected');
-    const published = store.publishPresentation(p.id, hashPassword('pw'))!;
+  it('string hash sets protection and publishes', async () => {
+    const p = await store.createPresentation('Protected');
+    const published = (await store.publishPresentation(p.id, hashPassword('pw')))!;
     expect(published.published).toBe(true);
     expect(published.protected).toBe(true);
-    expect(store.getPasswordHash(p.shareToken)).toBeTruthy();
+    expect(await store.getPasswordHash(p.shareToken)).toBeTruthy();
   });
 
-  it('undefined leaves existing protection unchanged', () => {
-    const p = store.createPresentation('Keep');
-    store.publishPresentation(p.id, hashPassword('pw'));
-    const again = store.publishPresentation(p.id, undefined)!;
+  it('undefined leaves existing protection unchanged', async () => {
+    const p = await store.createPresentation('Keep');
+    await store.publishPresentation(p.id, hashPassword('pw'));
+    const again = (await store.publishPresentation(p.id, undefined))!;
     expect(again.protected).toBe(true);
     expect(again.published).toBe(true);
   });
 
-  it('null removes protection', () => {
-    const p = store.createPresentation('Unlock');
-    store.publishPresentation(p.id, hashPassword('pw'));
-    const cleared = store.publishPresentation(p.id, null)!;
+  it('null removes protection', async () => {
+    const p = await store.createPresentation('Unlock');
+    await store.publishPresentation(p.id, hashPassword('pw'));
+    const cleared = (await store.publishPresentation(p.id, null))!;
     expect(cleared.protected).toBe(false);
-    expect(store.getPasswordHash(p.shareToken)).toBeNull();
+    expect(await store.getPasswordHash(p.shareToken)).toBeNull();
   });
 });
 
 describe('getPasswordHash', () => {
-  it('returns null for an unprotected or unknown deck', () => {
-    const p = store.createPresentation('Open');
-    expect(store.getPasswordHash(p.shareToken)).toBeNull();
-    expect(store.getPasswordHash('unknown-token')).toBeNull();
+  it('returns null for an unprotected or unknown deck', async () => {
+    const p = await store.createPresentation('Open');
+    expect(await store.getPasswordHash(p.shareToken)).toBeNull();
+    expect(await store.getPasswordHash('unknown-token')).toBeNull();
   });
 });

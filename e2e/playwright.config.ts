@@ -32,7 +32,8 @@ export default defineConfig({
     timeout: 180_000,
     env: {
       PORT: String(PORT),
-      DATA_DIR: path.resolve(HERE, '.data'),
+      DATABASE_URL:
+        process.env.DATABASE_URL ?? 'postgres://pointless:pointless@127.0.0.1:5432/pointless',
     },
   },
 });

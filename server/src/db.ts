@@ -1,39 +1,52 @@
-import Database from 'better-sqlite3';
+import { Pool } from 'pg';
 import { randomBytes } from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
 import type { Presentation, PresentationSummary } from '@pointless/shared';
 
-const DATA_DIR = process.env.DATA_DIR ?? path.resolve(process.cwd(), 'data');
-fs.mkdirSync(DATA_DIR, { recursive: true });
+let _pool: Pool | null = null;
 
-const db = new Database(path.join(DATA_DIR, 'pointless.db'));
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS decks (
-    id            TEXT PRIMARY KEY,
-    title         TEXT NOT NULL,
-    html          TEXT NOT NULL DEFAULT '',
-    share_token   TEXT NOT NULL UNIQUE,
-    published     INTEGER NOT NULL DEFAULT 0,
-    password_hash TEXT,
-    owner         TEXT,
-    created_at    TEXT NOT NULL,
-    updated_at    TEXT NOT NULL
-  );
-`);
-
-// Migration from the slide-based era: presentations are single HTML documents now.
-const deckColumns = (db.pragma('table_info(decks)') as { name: string }[]).map((c) => c.name);
-if (!deckColumns.includes('html')) {
-  db.exec("ALTER TABLE decks ADD COLUMN html TEXT NOT NULL DEFAULT ''");
+// The pool is created lazily on first use so that DATABASE_URL can be set just
+// before the store is exercised (the server sets it from the environment; tests
+// point it at a throwaway Postgres). endPool() resets it so it re-opens later.
+function pool(): Pool {
+  if (!_pool) {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error(
+        'DATABASE_URL is required (e.g. postgres://user:pass@host:5432/pointless). ' +
+          'Run a Postgres container (see docker-compose.yml) or point at a hosted instance.'
+      );
+    }
+    const ssl = process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined;
+    _pool = new Pool({ connectionString, ssl });
+  }
+  return _pool;
 }
-if (!deckColumns.includes('password_hash')) {
-  db.exec('ALTER TABLE decks ADD COLUMN password_hash TEXT');
+
+/** Create the schema if it does not exist. Call once on startup before serving. */
+export async function init(): Promise<void> {
+  await pool().query(`
+    CREATE TABLE IF NOT EXISTS decks (
+      id            text PRIMARY KEY,
+      title         text NOT NULL,
+      html          text NOT NULL DEFAULT '',
+      share_token   text NOT NULL UNIQUE,
+      published     boolean NOT NULL DEFAULT false,
+      password_hash text,
+      owner         text,
+      created_at    text NOT NULL,
+      updated_at    text NOT NULL
+    );
+  `);
 }
-db.exec('DROP TABLE IF EXISTS slides');
+
+/** Close the pool. Tests call this for clean teardown; it re-opens lazily. */
+export async function endPool(): Promise<void> {
+  if (_pool) {
+    const p = _pool;
+    _pool = null;
+    await p.end();
+  }
+}
 
 const newId = () => randomBytes(6).toString('base64url');
 const newShareToken = () => randomBytes(16).toString('base64url');
@@ -44,7 +57,7 @@ interface DeckRow {
   title: string;
   html: string;
   share_token: string;
-  published: number;
+  published: boolean;
   password_hash: string | null;
   created_at: string;
   updated_at: string;
@@ -54,7 +67,7 @@ function toSummary(row: DeckRow): PresentationSummary {
   return {
     id: row.id,
     title: row.title,
-    published: row.published === 1,
+    published: row.published,
     protected: row.password_hash != null,
     shareToken: row.share_token,
     htmlSize: Buffer.byteLength(row.html, 'utf8'),
@@ -65,68 +78,78 @@ function toSummary(row: DeckRow): PresentationSummary {
 
 const toFull = (row: DeckRow): Presentation => ({ ...toSummary(row), html: row.html });
 
-export function createPresentation(title: string): Presentation {
+export async function createPresentation(title: string): Promise<Presentation> {
   const id = newId();
   const ts = now();
-  db.prepare(
-    'INSERT INTO decks (id, title, share_token, published, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)'
-  ).run(id, title, newShareToken(), ts, ts);
-  return getPresentation(id)!;
+  await pool().query(
+    'INSERT INTO decks (id, title, share_token, published, created_at, updated_at) VALUES ($1, $2, $3, false, $4, $5)',
+    [id, title, newShareToken(), ts, ts]
+  );
+  return (await getPresentation(id))!;
 }
 
-export function getPresentation(id: string): Presentation | null {
-  const row = db.prepare('SELECT * FROM decks WHERE id = ?').get(id) as DeckRow | undefined;
-  return row ? toFull(row) : null;
+export async function getPresentation(id: string): Promise<Presentation | null> {
+  const { rows } = await pool().query<DeckRow>('SELECT * FROM decks WHERE id = $1', [id]);
+  return rows[0] ? toFull(rows[0]) : null;
 }
 
-export function getPresentationByToken(token: string): Presentation | null {
-  const row = db.prepare('SELECT * FROM decks WHERE share_token = ?').get(token) as
-    | DeckRow
-    | undefined;
-  return row ? toFull(row) : null;
+export async function getPresentationByToken(token: string): Promise<Presentation | null> {
+  const { rows } = await pool().query<DeckRow>('SELECT * FROM decks WHERE share_token = $1', [
+    token,
+  ]);
+  return rows[0] ? toFull(rows[0]) : null;
 }
 
-export function listPresentations(): PresentationSummary[] {
-  const rows = db.prepare('SELECT * FROM decks ORDER BY updated_at DESC').all() as DeckRow[];
+export async function listPresentations(): Promise<PresentationSummary[]> {
+  const { rows } = await pool().query<DeckRow>('SELECT * FROM decks ORDER BY updated_at DESC');
   return rows.map(toSummary);
 }
 
-export function setHtml(id: string, html: string, title?: string): boolean {
-  const row = db.prepare('SELECT title FROM decks WHERE id = ?').get(id) as
-    | { title: string }
-    | undefined;
-  if (!row) return false;
-  db.prepare('UPDATE decks SET html = ?, title = ?, updated_at = ? WHERE id = ?').run(
+export async function setHtml(id: string, html: string, title?: string): Promise<boolean> {
+  const { rows } = await pool().query<{ title: string }>('SELECT title FROM decks WHERE id = $1', [
+    id,
+  ]);
+  if (!rows[0]) return false;
+  await pool().query('UPDATE decks SET html = $1, title = $2, updated_at = $3 WHERE id = $4', [
     html,
-    title ?? row.title,
+    title ?? rows[0].title,
     now(),
-    id
-  );
+    id,
+  ]);
   return true;
 }
 
-export function deletePresentation(id: string): boolean {
-  return db.prepare('DELETE FROM decks WHERE id = ?').run(id).changes > 0;
+export async function deletePresentation(id: string): Promise<boolean> {
+  const res = await pool().query('DELETE FROM decks WHERE id = $1', [id]);
+  return (res.rowCount ?? 0) > 0;
 }
 
 /**
  * Publish a presentation. `passwordHash` semantics: undefined = leave
  * protection unchanged, null = remove protection, string = set it.
  */
-export function publishPresentation(id: string, passwordHash?: string | null): Presentation | null {
+export async function publishPresentation(
+  id: string,
+  passwordHash?: string | null
+): Promise<Presentation | null> {
   if (passwordHash === undefined) {
-    db.prepare('UPDATE decks SET published = 1, updated_at = ? WHERE id = ?').run(now(), id);
+    await pool().query('UPDATE decks SET published = true, updated_at = $1 WHERE id = $2', [
+      now(),
+      id,
+    ]);
   } else {
-    db.prepare(
-      'UPDATE decks SET published = 1, password_hash = ?, updated_at = ? WHERE id = ?'
-    ).run(passwordHash, now(), id);
+    await pool().query(
+      'UPDATE decks SET published = true, password_hash = $1, updated_at = $2 WHERE id = $3',
+      [passwordHash, now(), id]
+    );
   }
   return getPresentation(id);
 }
 
-export function getPasswordHash(shareToken: string): string | null {
-  const row = db
-    .prepare('SELECT password_hash FROM decks WHERE share_token = ?')
-    .get(shareToken) as { password_hash: string | null } | undefined;
-  return row?.password_hash ?? null;
+export async function getPasswordHash(shareToken: string): Promise<string | null> {
+  const { rows } = await pool().query<{ password_hash: string | null }>(
+    'SELECT password_hash FROM decks WHERE share_token = $1',
+    [shareToken]
+  );
+  return rows[0]?.password_hash ?? null;
 }
