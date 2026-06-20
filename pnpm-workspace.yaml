@@ -3,10 +3,13 @@ packages:
   - server
   - web
 allowBuilds:
-  better-sqlite3: true
   esbuild: true
+  # testcontainers' transitive Docker client ships optional native build
+  # scripts we don't need — acknowledge-skip them so installs exit clean on CI
+  # and the slim production image (which has no compiler).
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
 auditConfig:
-  # esbuild dev-server CORS advisory — only affects local dev, not prod/CI.
-  # Reaches us transitively via vitest/vite (devDependencies only).
   ignoreGhsas:
     - GHSA-gv7w-rqvm-qjhr

@@ -109,19 +109,19 @@ export function createApp(): express.Express {
 
   // ---------- REST API (used by the web UI) ----------
 
-  app.get('/api/decks', requireAdmin, (_req, res) => {
-    res.json(store.listPresentations());
+  app.get('/api/decks', requireAdmin, async (_req, res) => {
+    res.json(await store.listPresentations());
   });
 
-  app.get('/api/decks/:id', requireAdmin, (req, res) => {
-    const p = store.getPresentation(req.params.id);
+  app.get('/api/decks/:id', requireAdmin, async (req, res) => {
+    const p = await store.getPresentation(req.params.id);
     if (!p) return res.status(404).json({ error: 'Not found' });
     const { html, ...meta } = p;
     res.json(meta);
   });
 
-  app.delete('/api/decks/:id', requireAdmin, (req, res) => {
-    if (!store.deletePresentation(req.params.id))
+  app.delete('/api/decks/:id', requireAdmin, async (req, res) => {
+    if (!(await store.deletePresentation(req.params.id)))
       return res.status(404).json({ error: 'Not found' });
     res.status(204).end();
   });
@@ -131,13 +131,13 @@ export function createApp(): express.Express {
    * proof from the unlock endpoint. Returns the presentation, or null after
    * having written the error response.
    */
-  function sharedOrReject(req: express.Request, res: express.Response) {
-    const p = store.getPresentationByToken(req.params.token);
+  async function sharedOrReject(req: express.Request, res: express.Response) {
+    const p = await store.getPresentationByToken(req.params.token);
     if (!p || !p.published) {
       res.status(404).json({ error: 'Not found' });
       return null;
     }
-    const hash = store.getPasswordHash(p.shareToken);
+    const hash = await store.getPasswordHash(p.shareToken);
     const k = typeof req.query.k === 'string' ? req.query.k : '';
     if (hash && !safeEqual(k, viewKey(hash, p.shareToken))) {
       res.status(401).json({ error: 'Password required', protected: true });
@@ -146,17 +146,17 @@ export function createApp(): express.Express {
     return p;
   }
 
-  app.get('/api/shared/:token', (req, res) => {
-    const p = sharedOrReject(req, res);
+  app.get('/api/shared/:token', async (req, res) => {
+    const p = await sharedOrReject(req, res);
     if (!p) return;
     const { html, ...meta } = p;
     res.json(meta);
   });
 
-  app.post('/api/shared/:token/unlock', unlockLimiter, (req, res) => {
-    const p = store.getPresentationByToken(req.params.token);
+  app.post('/api/shared/:token/unlock', unlockLimiter, async (req, res) => {
+    const p = await store.getPresentationByToken(req.params.token);
     if (!p || !p.published) return res.status(404).json({ error: 'Not found' });
-    const hash = store.getPasswordHash(p.shareToken);
+    const hash = await store.getPasswordHash(p.shareToken);
     if (!hash) return res.json({ key: null });
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
     if (!verifyPassword(password, hash)) {
@@ -167,14 +167,14 @@ export function createApp(): express.Express {
 
   // ---------- Raw documents (always CSP-sandboxed) ----------
 
-  app.get('/raw/deck/:id', requireAdmin, (req, res) => {
-    const p = store.getPresentation(req.params.id);
+  app.get('/raw/deck/:id', requireAdmin, async (req, res) => {
+    const p = await store.getPresentation(req.params.id);
     if (!p) return res.status(404).send('Not found');
     res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
   });
 
-  app.get('/raw/:token', (req, res) => {
-    const p = sharedOrReject(req, res);
+  app.get('/raw/:token', async (req, res) => {
+    const p = await sharedOrReject(req, res);
     if (!p) return;
     res.setHeader('Content-Security-Policy', DOC_CSP).type('html').send(p.html);
   });
