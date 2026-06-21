@@ -25,10 +25,18 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
-    { name: 'Desktop Chrome', use: { ...devices['Desktop Chrome'] } },
-    { name: 'Desktop Firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'Desktop Safari', use: { ...devices['Desktop Safari'] } },
-    { name: 'Mobile Safari', use: { ...devices['iPhone 13'] } },
+    // Engine-independent HTTP checks (api.spec.ts) run once, with no browser.
+    { name: 'api', testMatch: /api\.spec\.ts/ },
+    // Browser-rendering specs run across every engine and viewport; they skip
+    // the HTTP-only spec so it isn't re-run per engine.
+    { name: 'Desktop Chrome', use: { ...devices['Desktop Chrome'] }, testIgnore: /api\.spec\.ts/ },
+    {
+      name: 'Desktop Firefox',
+      use: { ...devices['Desktop Firefox'] },
+      testIgnore: /api\.spec\.ts/,
+    },
+    { name: 'Desktop Safari', use: { ...devices['Desktop Safari'] }, testIgnore: /api\.spec\.ts/ },
+    { name: 'Mobile Safari', use: { ...devices['iPhone 13'] }, testIgnore: /api\.spec\.ts/ },
   ],
   webServer: {
     command: 'pnpm -w build && pnpm -w start',
