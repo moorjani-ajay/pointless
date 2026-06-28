@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { safeEqual, verifyPassword, viewKey } from './auth.js';
 import * as store from './db.js';
 import { buildMcpServer } from './mcp.js';
+import { COMMIT, VERSION } from './version.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -27,14 +28,16 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '5mb' }));
 
   // A general ceiling on every route except /mcp (which the authoring agent
-  // drives and which carries no credentials), plus a strict gate on password
-  // attempts so protected share links can't be brute-forced.
+  // drives and which carries no credentials) and /version (an unauthenticated
+  // identity/liveness probe that health checks may poll frequently), plus a
+  // strict gate on password attempts so protected share links can't be
+  // brute-forced.
   const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 300,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    skip: (req) => req.path === '/mcp',
+    skip: (req) => req.path === '/mcp' || req.path === '/version',
   });
   const unlockLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -70,6 +73,15 @@ export function createApp(): express.Express {
       .status(403)
       .json({ error: 'Admin API is loopback-only; set ADMIN_TOKEN to allow remote access' });
   }
+
+  // ---------- Health / identity ----------
+
+  // Unauthenticated identity probe: reports the running version + commit so a
+  // deployment can be checked at a glance. Doubles as a lightweight liveness
+  // check — the app has no other health endpoint.
+  app.get('/version', (_req, res) => {
+    res.json({ version: VERSION, commit: COMMIT });
+  });
 
   // ---------- MCP (Streamable HTTP, stateless: fresh server+transport per request) ----------
 

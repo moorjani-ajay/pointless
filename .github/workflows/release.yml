@@ -1,0 +1,128 @@
+name: release
+
+# The publish pipeline. Reusable so release-please.yml can call it the moment a
+# release is cut (GITHUB_TOKEN-created tags/releases do not trigger fresh
+# `on: push`/`on: release` runs, so keying off release-please's output is the
+# reliable trigger). Also dispatchable to (re)publish an existing tag by hand.
+on:
+  workflow_call:
+    inputs:
+      tag_name:
+        description: Release tag to build, e.g. v0.3.0
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to (re)publish, e.g. v0.3.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write # push to GHCR
+  id-token: write # cosign keyless signing + provenance attestation
+
+env:
+  IMAGE: ghcr.io/moorjani-ajay/pointless
+
+jobs:
+  image:
+    name: Build, push & sign multi-arch image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_name }}
+
+      # Stamp the image with the commit the tag actually points at. github.sha
+      # is the HEAD of the ref the workflow ran on, which equals the tag on the
+      # release-please path but diverges on a workflow_dispatch re-publish of an
+      # older tag — so resolve the checked-out commit instead of trusting it.
+      - name: Resolve release commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Never publish an unverified image: build shared/dist, then run the full
+      # quality gate (format, lint, typecheck, test) before anything is pushed.
+      - run: pnpm run build
+      - run: pnpm run check
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive tags + OCI labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # Float latest and the major/minor tags only for stable releases;
+          # pre-releases (tags containing a hyphen, e.g. -rc.1) push only X.Y.Z.
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag_name }},enable=${{ !contains(inputs.tag_name, '-') }}
+            type=semver,pattern={{major}},value=${{ inputs.tag_name }},enable=${{ !contains(inputs.tag_name, '-') }}
+            type=raw,value=latest,enable=${{ !contains(inputs.tag_name, '-') }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            POINTLESS_VERSION=${{ inputs.tag_name }}
+            POINTLESS_COMMIT=${{ steps.commit.outputs.sha }}
+          sbom: true
+          provenance: mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the image (keyless, Sigstore/OIDC)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Job summary (digest + verify command)
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAG: ${{ inputs.tag_name }}
+        run: |
+          {
+            echo "### Published \`${TAG}\`"
+            echo
+            echo "**Image (pin by digest):** \`${IMAGE}@${DIGEST}\`"
+            echo
+            echo "**Tags:**"
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+            echo "**Verify:**"
+            echo '```'
+            echo "cosign verify ${IMAGE}@${DIGEST} \\"
+            echo "  --certificate-identity-regexp '^https://github.com/moorjani-ajay/pointless/' \\"
+            echo "  --certificate-oidc-issuer https://token.actions.githubusercontent.com"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

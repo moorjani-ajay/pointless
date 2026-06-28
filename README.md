@@ -54,20 +54,56 @@ docker compose up --build
 # app on http://localhost:3000, Postgres running alongside it
 ```
 
-To run the app against an existing/hosted Postgres instead:
+### Run a published image
+
+Released images are published to the GitHub Container Registry, built multi-arch
+(`linux/amd64` + `linux/arm64`), signed, and SBOM-attested. Run a pinned version
+against any Postgres:
 
 ```sh
-docker build -t pointless .
 docker run -d -p 3000:3000 \
   -e DATABASE_URL=postgres://user:pass@your-db-host:5432/pointless \
   -e DATABASE_SSL=true \
   -e BASE_URL=https://pointless.yourcompany.com \
-  pointless
+  ghcr.io/moorjani-ajay/pointless:0.3.0
 ```
 
-`DATABASE_URL` is required. Set `DATABASE_SSL=true` for hosted databases that
-require TLS (e.g. RDS). `BASE_URL` is what publish links are minted with; omit
-it to derive from the request host.
+For reproducible deploys, pin by immutable digest instead of a moving tag:
+
+```sh
+docker run -d -p 3000:3000 -e DATABASE_URL=… \
+  ghcr.io/moorjani-ajay/pointless@sha256:<digest>
+```
+
+Every release is signed with [cosign](https://docs.sigstore.dev) keyless — verify
+it before running:
+
+```sh
+cosign verify ghcr.io/moorjani-ajay/pointless:0.3.0 \
+  --certificate-identity-regexp '^https://github.com/moorjani-ajay/pointless/' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+```
+
+A running instance reports what it is at `GET /version` (`{ version, commit }`).
+
+### Build it yourself
+
+No registry needed — build the image locally and run it the same way:
+
+```sh
+docker build -t pointless .
+docker run -d -p 3000:3000 -e DATABASE_URL=… pointless
+```
+
+### Configuration
+
+| Variable       | Required | Purpose                                                                            |
+| -------------- | -------- | ---------------------------------------------------------------------------------- |
+| `DATABASE_URL` | yes      | Postgres connection string, e.g. `postgres://user:pass@host:5432/pointless`.       |
+| `DATABASE_SSL` | no       | Set to `true` for hosted databases that require TLS (e.g. RDS).                    |
+| `BASE_URL`     | no       | Origin that publish links are minted with; omit to derive from the request host.   |
+| `ADMIN_TOKEN`  | no       | Gates the operator surface; required once the server is reachable beyond loopback. |
+| `PORT`         | no       | Port to listen on (default `3000`).                                                |
 
 `ADMIN_TOKEN` gates the operator surface (deck list/delete and preview-by-id).
 Set it whenever the server is reachable beyond loopback, then open the manager

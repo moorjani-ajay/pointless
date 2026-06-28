@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { hashPassword } from './auth.js';
 import * as store from './db.js';
 import { DESIGN_GUIDE } from './designguide.js';
+import { VERSION } from './version.js';
 import type { Presentation } from '@pointless/shared';
 
 export const MAX_HTML_BYTES = 2 * 1024 * 1024;
@@ -37,7 +38,7 @@ function info(p: Presentation, baseUrl: string) {
 
 export function buildMcpServer(baseUrl: string): McpServer {
   const server = new McpServer(
-    { name: 'pointless', version: '0.2.0' },
+    { name: 'pointless', version: VERSION },
     {
       instructions:
         'Pointless hosts presentations that are full, self-contained interactive HTML documents ' +

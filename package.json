@@ -1,11 +1,14 @@
 {
   "name": "pointless",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Pointless — presentations, minus the Power. Talk decks into existence over MCP, share them with a link.",
   "license": "MIT",
   "packageManager": "pnpm@11.5.3",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm --filter @pointless/server dev",
@@ -23,6 +26,8 @@
     "prepare": "husky"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.1.0",
+    "@commitlint/config-conventional": "^21.1.0",
     "@eslint/js": "^9.29.0",
     "@playwright/test": "^1.53.0",
     "@types/supertest": "^6.0.2",
