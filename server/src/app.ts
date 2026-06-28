@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { safeEqual, verifyPassword, viewKey } from './auth.js';
 import * as store from './db.js';
 import { buildMcpServer } from './mcp.js';
+import { COMMIT, VERSION } from './version.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,6 +71,15 @@ export function createApp(): express.Express {
       .status(403)
       .json({ error: 'Admin API is loopback-only; set ADMIN_TOKEN to allow remote access' });
   }
+
+  // ---------- Health / identity ----------
+
+  // Unauthenticated identity probe: reports the running version + commit so a
+  // deployment can be checked at a glance. Doubles as a lightweight liveness
+  // check — the app has no other health endpoint.
+  app.get('/version', (_req, res) => {
+    res.json({ version: VERSION, commit: COMMIT });
+  });
 
   // ---------- MCP (Streamable HTTP, stateless: fresh server+transport per request) ----------
 

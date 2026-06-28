@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "include-component-in-tag": false,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "bootstrap-sha": "3d7659daff5d87721fe1952e4a90e74d0dc187b3",
+  "packages": {
+    ".": {
+      "package-name": "pointless",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        { "type": "json", "path": "server/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "shared/package.json", "jsonpath": "$.version" },
+        { "type": "json", "path": "web/package.json", "jsonpath": "$.version" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+name: Commit lint
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+# Cancel superseded runs on the same PR.
+concurrency:
+  group: commitlint-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title:
+    name: Lint PR title (Conventional Commits)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Squash-merge uses the PR title as the commit subject, so the title is
+      # what must satisfy Conventional Commits. Lint it with the same config as
+      # the local commit-msg hook so local and CI never disagree.
+      - name: Lint PR title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$PR_TITLE" | pnpm exec commitlint --verbose
