@@ -28,14 +28,16 @@ export function createApp(): express.Express {
   app.use(express.json({ limit: '5mb' }));
 
   // A general ceiling on every route except /mcp (which the authoring agent
-  // drives and which carries no credentials), plus a strict gate on password
-  // attempts so protected share links can't be brute-forced.
+  // drives and which carries no credentials) and /version (an unauthenticated
+  // identity/liveness probe that health checks may poll frequently), plus a
+  // strict gate on password attempts so protected share links can't be
+  // brute-forced.
   const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 300,
     standardHeaders: 'draft-7',
     legacyHeaders: false,
-    skip: (req) => req.path === '/mcp',
+    skip: (req) => req.path === '/mcp' || req.path === '/version',
   });
   const unlockLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
