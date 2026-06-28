@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0](https://github.com/moorjani-ajay/pointless/compare/v0.2.0...v0.3.0) (2026-06-28)
+
+
+### Features
+
+* add automated release and versioning pipeline ([#25](https://github.com/moorjani-ajay/pointless/issues/25)) ([4d47db0](https://github.com/moorjani-ajay/pointless/commit/4d47db089e6393b40564b64392e8da62c64bd647))
+
+## Changelog
+
 All notable changes to Pointless are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
