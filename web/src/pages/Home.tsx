@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { deleteDeck, listDecks } from '../api';
 import { withAdmin } from '../admin';
+import { logout, useAuth } from '../auth';
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -85,6 +86,7 @@ function DeckCard({
 export function Home() {
   const [decks, setDecks] = useState<PresentationSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const auth = useAuth();
   const origin = window.location.origin;
   const mcpUrl = `${origin}/mcp`;
   const claudeCodeCmd = `claude mcp add --transport http pointless ${mcpUrl}`;
@@ -109,7 +111,16 @@ export function Home() {
         <div className="topbar-right">
           {hasDecks && <a href="#decks">Your presentations</a>}
           <a href="#connect">Setup</a>
-          <span className="topbar-tag">self-hosted · MIT</span>
+          {auth.status === 'authed' ? (
+            <span className="user-chip">
+              <span className="user-name">{auth.user.email ?? auth.user.name ?? 'Signed in'}</span>
+              <button className="btn btn-small" onClick={() => void logout()}>
+                Sign out
+              </button>
+            </span>
+          ) : (
+            <span className="topbar-tag">self-hosted · MIT</span>
+          )}
         </div>
       </nav>
 
