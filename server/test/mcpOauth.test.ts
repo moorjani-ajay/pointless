@@ -420,6 +420,20 @@ describe('MCP OAuth over HTTP', () => {
       process.env.MCP_REQUIRE_AUTH = 'true';
     }
   });
+
+  it('gates /mcp by default under oidc when MCP_REQUIRE_AUTH is unset (default-secure)', async () => {
+    const saved = process.env.MCP_REQUIRE_AUTH;
+    delete process.env.MCP_REQUIRE_AUTH; // oidc on, no explicit MCP toggle
+    try {
+      const res = await request(createApp())
+        .post('/mcp')
+        .set('Content-Type', 'application/json')
+        .send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
+      expect(res.status).toBe(401); // isolation would be a facade if this were open
+    } finally {
+      process.env.MCP_REQUIRE_AUTH = saved;
+    }
+  });
 });
 
 describe('config validation (hardening)', () => {
