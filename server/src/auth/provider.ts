@@ -20,6 +20,7 @@ import { resourceUrlFromServerUrl } from '@modelcontextprotocol/sdk/shared/auth-
 import { isEmailAllowed, mcpResource } from '../config.js';
 import * as store from '../db.js';
 import { startFederation } from './federation.js';
+import { setOidcTxnCookie } from './session.js';
 import { mintOpaque, sha256 } from './tokens.js';
 
 /**
@@ -133,6 +134,7 @@ export class PgFederatedOAuthProvider implements OAuthServerProvider {
       clientState: params.state ?? null,
       resource: params.resource?.toString() ?? null,
     });
+    setOidcTxnCookie(res, state); // bind this authorize flow to the initiating browser
     res.redirect(url.href);
   }
 

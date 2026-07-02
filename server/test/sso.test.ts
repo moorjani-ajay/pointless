@@ -2,7 +2,13 @@ import request from 'supertest';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import * as store from '../src/db';
-import { SESSION_COOKIE, signSession, verifySession } from '../src/auth/session';
+import {
+  OIDC_TXN_COOKIE,
+  SESSION_COOKIE,
+  signOidcTxn,
+  signSession,
+  verifySession,
+} from '../src/auth/session';
 import { resetOidcConfigCache } from '../src/auth/federation';
 import { startMockOidc, type MockOidc } from './helpers/mockOidc';
 
@@ -46,6 +52,12 @@ beforeEach(async () => {
 
 /** Build a Cookie header carrying a signed session for `userId`. */
 const cookieFor = (userId: string) => `${SESSION_COOKIE}=${signSession(userId)}`;
+
+/** Collapse a response's Set-Cookie header(s) into a Cookie request header value. */
+const cookiesFrom = (res: { headers: Record<string, unknown> }): string =>
+  ((res.headers['set-cookie'] as string[] | undefined) ?? [])
+    .map((c) => c.split(';')[0])
+    .join('; ');
 
 describe('session token', () => {
   it('round-trips a signed session', () => {
@@ -234,7 +246,9 @@ describe('federation (mock IdP)', () => {
     const login = await request(app).get('/auth/login');
     const state = new URL(login.headers.location).searchParams.get('state')!;
 
-    const cb = await request(app).get(`/auth/callback?code=mock-code&state=${state}`);
+    const cb = await request(app)
+      .get(`/auth/callback?code=mock-code&state=${state}`)
+      .set('Cookie', cookiesFrom(login)); // carry the txn cookie back, as a browser would
     expect(cb.status).toBe(302);
     expect(cb.headers.location).toBe('/');
     const setCookie = cb.headers['set-cookie'] as unknown as string[];
@@ -247,8 +261,30 @@ describe('federation (mock IdP)', () => {
   });
 
   it('rejects an unknown/replayed state', async () => {
-    const res = await request(createApp()).get('/auth/callback?code=x&state=never-issued');
+    // Present a validly-bound txn cookie so we get past the browser-binding
+    // check and exercise the unknown-login-state path itself.
+    const res = await request(createApp())
+      .get('/auth/callback?code=x&state=never-issued')
+      .set('Cookie', `${OIDC_TXN_COOKIE}=${signOidcTxn('never-issued')}`);
     expect(res.status).toBe(400);
+  });
+
+  it('rejects a callback not bound to this browser (login CSRF / code injection)', async () => {
+    idp.setUser({ sub: 'csrf-1', email: 'csrf@example.com', name: 'CSRF' });
+    const app = createApp();
+    const login = await request(app).get('/auth/login');
+    const state = new URL(login.headers.location).searchParams.get('state')!;
+    // A different browser completes the flow — no txn cookie forwarded.
+    const cb = await request(app).get(`/auth/callback?code=mock-code&state=${state}`);
+    expect(cb.status).toBe(400);
+    // A forged txn cookie for the same state is rejected too (HMAC-signed).
+    const forged = await request(app)
+      .get(`/auth/callback?code=mock-code&state=${state}`)
+      .set(
+        'Cookie',
+        `${OIDC_TXN_COOKIE}=v1.${Buffer.from(JSON.stringify({ st: state, exp: 9999999999 })).toString('base64url')}.deadbeef`
+      );
+    expect(forged.status).toBe(400);
   });
 
   it('refuses a disallowed email domain', async () => {
@@ -258,7 +294,9 @@ describe('federation (mock IdP)', () => {
       const app = createApp();
       const login = await request(app).get('/auth/login');
       const state = new URL(login.headers.location).searchParams.get('state')!;
-      const cb = await request(app).get(`/auth/callback?code=mock-code&state=${state}`);
+      const cb = await request(app)
+        .get(`/auth/callback?code=mock-code&state=${state}`)
+        .set('Cookie', cookiesFrom(login));
       expect(cb.status).toBe(403);
     } finally {
       delete process.env.OIDC_ALLOWED_DOMAINS;

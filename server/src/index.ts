@@ -14,7 +14,7 @@ async function main() {
     if (authMode() === 'oidc') {
       console.log(
         `  Auth: OIDC sign-in enabled for the UI. ` +
-          `MCP endpoint: ${mcpRequireAuth() ? 'requires a bearer token' : 'open (set MCP_REQUIRE_AUTH=true to gate it)'}.`
+          `MCP endpoint: ${mcpRequireAuth() ? 'requires a bearer token' : 'open (MCP_REQUIRE_AUTH=false)'}.`
       );
     } else if (!process.env.ADMIN_TOKEN) {
       console.warn(

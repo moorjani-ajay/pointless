@@ -346,9 +346,15 @@ describe('MCP OAuth over HTTP', () => {
     });
     expect(authz.status).toBe(302);
     const upstreamState = new URL(authz.headers.location).searchParams.get('state')!;
+    // authorize() bound this flow to the browser via a txn cookie; carry it back.
+    const txnCookie = (authz.headers['set-cookie'] as unknown as string[])
+      .map((c) => c.split(';')[0])
+      .join('; ');
 
     // 3) IdP callback → mint our code → redirect back to the MCP client.
-    const cb = await request(app).get(`/auth/callback?code=x&state=${upstreamState}`);
+    const cb = await request(app)
+      .get(`/auth/callback?code=x&state=${upstreamState}`)
+      .set('Cookie', txnCookie);
     expect(cb.status).toBe(302);
     const back = new URL(cb.headers.location);
     expect(`${back.origin}${back.pathname}`).toBe(REDIRECT);

@@ -3,10 +3,14 @@
  *
  * Pointless is open by default. Everything here is opt-in: with no env set,
  * `authMode()` is `'off'` and the server behaves exactly as it always has.
- * Two independent switches gate the two surfaces:
+ * Two switches gate the two surfaces:
  *   - AUTH_MODE=oidc      → UI login + the OAuth authorization-server routes
- *   - MCP_REQUIRE_AUTH    → the /mcp endpoint requires a bearer token
- * so an operator can gate the dashboard while leaving /mcp open, or vice versa.
+ *   - MCP_REQUIRE_AUTH    → whether /mcp requires a bearer token. Under oidc this
+ *                           defaults to ON: per-user isolation is meaningless
+ *                           with an open, unscoped data plane, so gating the
+ *                           dashboard gates /mcp too. Set MCP_REQUIRE_AUTH=false
+ *                           to deliberately leave /mcp open (e.g. a single-user
+ *                           instance). When AUTH_MODE is unset it is always off.
  *
  * Values are read lazily (at call time, not import time) so tests can construct
  * apps with different env — mirroring how `db.ts` reads DATABASE_URL and
@@ -20,7 +24,14 @@ export function authMode(): AuthMode {
 }
 
 export function mcpRequireAuth(): boolean {
-  return process.env.MCP_REQUIRE_AUTH === 'true';
+  const raw = process.env.MCP_REQUIRE_AUTH;
+  // Default-secure under oidc: an unset (or empty) value gates /mcp so the data
+  // plane isn't left open and unscoped by default. Requires an explicit
+  // `false` to opt out. In 'off' mode there is no authorization server to
+  // verify bearer tokens, so it stays false (validateAuthConfig also rejects an
+  // explicit MCP_REQUIRE_AUTH=true without oidc).
+  if (raw === undefined || raw === '') return authMode() === 'oidc';
+  return raw === 'true';
 }
 
 /**

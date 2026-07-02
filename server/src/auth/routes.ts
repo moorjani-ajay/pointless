@@ -2,7 +2,14 @@ import type express from 'express';
 import { canonicalBaseUrl, isEmailAllowed, roleForEmail } from '../config.js';
 import * as store from '../db.js';
 import { completeFederation, startFederation } from './federation.js';
-import { clearSessionCookie, currentUserId, setSessionCookie } from './session.js';
+import {
+  clearOidcTxnCookie,
+  clearSessionCookie,
+  currentOidcTxn,
+  currentUserId,
+  setOidcTxnCookie,
+  setSessionCookie,
+} from './session.js';
 import { mintOpaque, sha256 } from './tokens.js';
 
 const MCP_CODE_TTL_MS = 60 * 1000;
@@ -21,6 +28,7 @@ export function mountAuthRoutes(app: express.Express): void {
     void (async () => {
       const { url, state, verifier } = await startFederation();
       await store.insertLoginState({ state, intent: 'ui', pkceVerifier: verifier });
+      setOidcTxnCookie(res, state); // bind this login to the initiating browser
       res.redirect(url.href);
     })().catch(next);
   });
@@ -30,6 +38,17 @@ export function mountAuthRoutes(app: express.Express): void {
     void (async () => {
       const state = typeof req.query.state === 'string' ? req.query.state : '';
       if (!state) return res.status(400).send('Missing state');
+
+      // Bind the callback to the browser that started the flow: the signed txn
+      // cookie set at /auth/login (or authorize()) must carry the same `state`.
+      // Without this an attacker who initiates a login/authorize can relay the
+      // callback to a victim (login CSRF / authorization-code injection). Clear
+      // it either way — it is one-time use.
+      const txnState = currentOidcTxn(req);
+      clearOidcTxnCookie(res);
+      if (!txnState || txnState !== state) {
+        return res.status(400).send('Invalid or expired login transaction');
+      }
 
       const row = await store.takeLoginState(state); // one-time use
       if (!row) return res.status(400).send('Unknown or expired login state');
