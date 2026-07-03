@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/moorjani-ajay/pointless/compare/v0.3.0...v0.4.0) (2026-07-03)
+
+
+### Features
+
+* **auth:** pluggable SSO/OIDC login + interactive OAuth 2.1 on /mcp ([#29](https://github.com/moorjani-ajay/pointless/issues/29)) ([e1ae589](https://github.com/moorjani-ajay/pointless/commit/e1ae589a550945bfdc19bb5fae1703c69da8a5bd))
+* **web:** show version in homepage footer ([#32](https://github.com/moorjani-ajay/pointless/issues/32)) ([aca7956](https://github.com/moorjani-ajay/pointless/commit/aca79568cb00cb5d04e727f912a0335c9405622b))
+
 ## [0.3.0](https://github.com/moorjani-ajay/pointless/compare/v0.2.0...v0.3.0) (2026-06-28)
 
 
