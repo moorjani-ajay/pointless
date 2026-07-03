@@ -1,7 +1,7 @@
 import type { PresentationSummary } from '@pointless/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { deleteDeck, listDecks } from '../api';
+import { deleteDeck, getVersion, listDecks, type VersionInfo } from '../api';
 import { withAdmin } from '../admin';
 import { logout, useAuth } from '../auth';
 
@@ -86,6 +86,7 @@ function DeckCard({
 export function Home() {
   const [decks, setDecks] = useState<PresentationSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [version, setVersion] = useState<VersionInfo | null>(null);
   const auth = useAuth();
   const origin = window.location.origin;
   const mcpUrl = `${origin}/mcp`;
@@ -93,6 +94,11 @@ export function Home() {
 
   const refresh = () => listDecks().then(setDecks, (e: Error) => setError(e.message));
   useEffect(() => void refresh(), []);
+
+  // Non-critical chrome: if the probe fails, the footer just omits the version.
+  useEffect(() => {
+    getVersion().then(setVersion, () => {});
+  }, []);
 
   const remove = async (deck: PresentationSummary) => {
     if (!window.confirm(`Delete "${deck.title}"? This cannot be undone.`)) return;
@@ -281,6 +287,12 @@ export function Home() {
           pointless<span className="dot">.</span> — presentations, minus the Power
         </span>
         <span>Open source · MIT · Your content lives on this server, nowhere else</span>
+        {version && (
+          <span className="footer-version">
+            v{version.version}
+            {version.commit !== 'unknown' && ` · ${version.commit.slice(0, 7)}`}
+          </span>
+        )}
       </footer>
     </div>
   );
