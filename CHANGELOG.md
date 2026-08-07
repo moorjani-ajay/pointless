@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/moorjani-ajay/pointless/compare/v0.5.0...v0.5.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **auth:** default OIDC scopes when env var is empty ([#37](https://github.com/moorjani-ajay/pointless/issues/37)) ([059fd6b](https://github.com/moorjani-ajay/pointless/commit/059fd6b754181efac82e9d3f62ddb132a7f36f69))
+
 ## [0.5.0](https://github.com/moorjani-ajay/pointless/compare/v0.4.0...v0.5.0) (2026-08-07)
 
 
