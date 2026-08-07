@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/moorjani-ajay/pointless/compare/v0.4.0...v0.5.0) (2026-08-07)
+
+
+### Features
+
+* **web:** simplify home page to just the presentation list ([#35](https://github.com/moorjani-ajay/pointless/issues/35)) ([9ec344a](https://github.com/moorjani-ajay/pointless/commit/9ec344a699d63b2731572e0a901b02fa70c2234d))
+
 ## [0.4.0](https://github.com/moorjani-ajay/pointless/compare/v0.3.0...v0.4.0) (2026-07-03)
 
 
