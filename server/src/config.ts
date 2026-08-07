@@ -65,7 +65,7 @@ export function oidcSettings(): OidcSettings {
     issuer: process.env.OIDC_ISSUER ?? '',
     clientId: process.env.OIDC_CLIENT_ID ?? '',
     clientSecret: process.env.OIDC_CLIENT_SECRET ?? '',
-    scopes: process.env.OIDC_SCOPES ?? 'openid email profile',
+    scopes: process.env.OIDC_SCOPES || 'openid email profile',
   };
 }
 
