@@ -14,6 +14,17 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 /**
+ * Constant-time string comparison. Used for secrets compared against
+ * attacker-supplied input (view keys, the admin token) so the check doesn't
+ * leak how many leading characters matched via timing.
+ */
+export function safeEqual(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && timingSafeEqual(ab, bb);
+}
+
+/**
  * Proof-of-unlock for protected decks. Derivable only with the stored hash
  * (server-side secret), so handing it to an unlocked client reveals nothing.
  */

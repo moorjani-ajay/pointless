@@ -2,6 +2,7 @@ import type { PresentationSummary } from '@pointless/shared';
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiError, getDeck, getSharedDeck, unlockDeck } from '../api';
+import { withAdmin } from '../admin';
 
 /** Untrusted presentation documents always render through this sandbox. */
 const SANDBOX = 'allow-scripts allow-popups';
@@ -110,7 +111,7 @@ export function Viewer({ kind }: { kind: 'preview' | 'shared' }) {
 
   const src =
     kind === 'preview'
-      ? `/raw/deck/${meta.id}`
+      ? withAdmin(`/raw/deck/${meta.id}`)
       : `/raw/${meta.shareToken}${viewKey ? `?k=${encodeURIComponent(viewKey)}` : ''}`;
 
   return (
