@@ -1,0 +1,38 @@
+# Local stack: Postgres + the Pointless app. This mirrors production — the app
+# is stateless and just points at DATABASE_URL. Here that's a Postgres
+# container; in production it can be a hosted instance (RDS) or an in-cluster
+# Postgres pod. Either way the app image is identical.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: pointless
+      POSTGRES_PASSWORD: pointless
+      POSTGRES_DB: pointless
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pointless -d pointless']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    # Pull a published release by default (set POINTLESS_TAG=X.Y.Z to pin one);
+    # `docker compose up --build` builds the image locally into this same name.
+    image: ghcr.io/moorjani-ajay/pointless:${POINTLESS_TAG:-latest}
+    build: .
+    environment:
+      DATABASE_URL: postgres://pointless:pointless@db:5432/pointless
+      BASE_URL: http://localhost:3000
+      PORT: '3000'
+    ports:
+      - '3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

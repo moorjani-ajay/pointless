@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { hashPassword, verifyPassword, viewKey } from '../src/auth';
+import { hashPassword, safeEqual, verifyPassword, viewKey } from '../src/auth';
+
+describe('safeEqual', () => {
+  it('is true only for identical strings', () => {
+    expect(safeEqual('abc', 'abc')).toBe(true);
+    expect(safeEqual('abc', 'abd')).toBe(false);
+  });
+
+  it('is false for differing lengths instead of throwing', () => {
+    expect(safeEqual('abc', 'abcd')).toBe(false);
+    expect(safeEqual('', 'x')).toBe(false);
+  });
+});
 
 describe('hashPassword / verifyPassword', () => {
   it('stores a salt:hash pair', () => {

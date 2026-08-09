@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError, deleteDeck, getDeck, getSharedDeck, listDecks, unlockDeck } from '../src/api';
+import {
+  ApiError,
+  deleteDeck,
+  getDeck,
+  getSharedDeck,
+  getVersion,
+  listDecks,
+  unlockDeck,
+} from '../src/api';
 
 function mockFetch(status: number, body: unknown) {
   const fn = vi.fn(async () => ({
@@ -59,6 +67,14 @@ describe('unlockDeck', () => {
       status: 401,
       message: 'Wrong password',
     });
+  });
+});
+
+describe('getVersion', () => {
+  it('GETs the version endpoint and returns the parsed body', async () => {
+    const fetchFn = mockFetch(200, { version: '0.3.0', commit: 'abc1234' });
+    await expect(getVersion()).resolves.toEqual({ version: '0.3.0', commit: 'abc1234' });
+    expect(fetchFn).toHaveBeenCalledWith('/version');
   });
 });
 

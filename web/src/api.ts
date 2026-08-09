@@ -1,4 +1,5 @@
 import type { PresentationSummary } from '@pointless/shared';
+import { adminHeaders } from './admin';
 
 export class ApiError extends Error {
   constructor(
@@ -9,8 +10,11 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+async function get<T>(url: string, headers?: Record<string, string>): Promise<T> {
+  // Pass init only when there's something to send so callers without auth
+  // headers issue a plain single-arg fetch.
+  const res =
+    headers && Object.keys(headers).length ? await fetch(url, { headers }) : await fetch(url);
   if (!res.ok) {
     throw new ApiError(
       res.status,
@@ -20,8 +24,15 @@ async function get<T>(url: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export const listDecks = () => get<PresentationSummary[]>('/api/decks');
-export const getDeck = (id: string) => get<PresentationSummary>(`/api/decks/${id}`);
+export interface VersionInfo {
+  version: string;
+  commit: string;
+}
+
+export const getVersion = () => get<VersionInfo>('/version');
+
+export const listDecks = () => get<PresentationSummary[]>('/api/decks', adminHeaders());
+export const getDeck = (id: string) => get<PresentationSummary>(`/api/decks/${id}`, adminHeaders());
 
 export const getSharedDeck = (token: string, key?: string | null) =>
   get<PresentationSummary>(`/api/shared/${token}${key ? `?k=${encodeURIComponent(key)}` : ''}`);
@@ -39,6 +50,6 @@ export async function unlockDeck(token: string, password: string): Promise<strin
 }
 
 export async function deleteDeck(id: string): Promise<void> {
-  const res = await fetch(`/api/decks/${id}`, { method: 'DELETE' });
+  const res = await fetch(`/api/decks/${id}`, { method: 'DELETE', headers: adminHeaders() });
   if (!res.ok) throw new ApiError(res.status, `Delete failed (${res.status})`);
 }

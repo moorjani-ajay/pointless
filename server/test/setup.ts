@@ -1,7 +1,14 @@
-import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { afterAll, beforeAll, inject } from 'vitest';
+import * as store from '../src/db';
 
-// db.ts opens its SQLite file at import time from DATA_DIR. Point each test
-// file at its own throwaway directory so suites never share state.
-process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'pointless-test-'));
+// Connect this suite to the throwaway Postgres started in globalSetup. The pool
+// opens lazily, so setting DATABASE_URL before any store call is enough; init()
+// creates the schema and endPool() releases the connection so the run exits.
+beforeAll(async () => {
+  process.env.DATABASE_URL = inject('databaseUrl');
+  await store.init();
+});
+
+afterAll(async () => {
+  await store.endPool();
+});

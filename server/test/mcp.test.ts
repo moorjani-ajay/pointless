@@ -1,5 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { readFileSync } from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildMcpServer, MAX_HTML_BYTES } from '../src/mcp';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -126,5 +127,18 @@ describe('publish guards', () => {
     const pub = await call('publish', { presentation_id: id });
     expect(pub.isError).toBe(true);
     expect(pub.text).toMatch(/no content yet/i);
+  });
+});
+
+describe('server identity', () => {
+  // Guards against the drift that prompted this work: the MCP server must
+  // advertise the version from the single source of truth (root package.json),
+  // never a hardcoded literal.
+  it('advertises the version from the single source of truth', () => {
+    const root = JSON.parse(
+      readFileSync(new URL('../../package.json', import.meta.url), 'utf8')
+    ) as { version: string };
+    expect(client.getServerVersion()?.name).toBe('pointless');
+    expect(client.getServerVersion()?.version).toBe(root.version);
   });
 });
