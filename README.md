@@ -7,7 +7,7 @@ Deploy it once, connect any LLM that speaks
 [MCP](https://modelcontextprotocol.io) (Claude, or anything else), and ask for a
 presentation in plain language. What comes back is not a slide template: it's a
 bespoke, self-contained HTML experience (its own typography, motion, and
-navigation), published at a share link anyone in your org can open.
+navigation), published at a share link anyone you share it with can open.
 
 ```
 You: "Turn these Q3 numbers into a dark, editorial presentation:

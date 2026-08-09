@@ -91,6 +91,14 @@ export function Home() {
   const origin = window.location.origin;
   const mcpUrl = `${origin}/mcp`;
   const claudeCodeCmd = `claude mcp add --transport http pointless ${mcpUrl}`;
+  // One-click install deep links, built from the live endpoint. Cursor takes a
+  // base64 server config; VS Code takes URL-encoded JSON.
+  const cursorDeepLink = `cursor://anysphere.cursor-deeplink/mcp/install?name=pointless&config=${btoa(
+    JSON.stringify({ url: mcpUrl })
+  )}`;
+  const vscodeDeepLink = `vscode:mcp/install?${encodeURIComponent(
+    JSON.stringify({ name: 'pointless', type: 'http', url: mcpUrl })
+  )}`;
 
   const refresh = () => listDecks().then(setDecks, (e: Error) => setError(e.message));
   useEffect(() => void refresh(), []);
@@ -137,6 +145,14 @@ export function Home() {
         <div className="connect-value">
           <code>{claudeCodeCmd}</code>
           <CopyButton className="btn btn-small" text={claudeCodeCmd} label="Copy" />
+        </div>
+        <div className="connect-actions">
+          <a className="btn btn-small" href={cursorDeepLink}>
+            Add to Cursor
+          </a>
+          <a className="btn btn-small" href={vscodeDeepLink}>
+            Add to VS Code
+          </a>
         </div>
       </section>
 
