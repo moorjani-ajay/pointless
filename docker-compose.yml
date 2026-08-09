@@ -20,6 +20,9 @@ services:
       retries: 10
 
   app:
+    # Pull a published release by default (set POINTLESS_TAG=X.Y.Z to pin one);
+    # `docker compose up --build` builds the image locally into this same name.
+    image: ghcr.io/moorjani-ajay/pointless:${POINTLESS_TAG:-latest}
     build: .
     environment:
       DATABASE_URL: postgres://pointless:pointless@db:5432/pointless

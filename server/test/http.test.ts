@@ -37,6 +37,15 @@ describe('hardening', () => {
   });
 });
 
+describe('identity', () => {
+  it('GET /version reports version + commit without auth', async () => {
+    const res = await request(app).get('/version');
+    expect(res.status).toBe(200);
+    expect(res.body.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(res.body).toHaveProperty('commit');
+  });
+});
+
 describe('REST: decks', () => {
   it('lists decks (empty to start)', async () => {
     const res = await request(app).get('/api/decks');

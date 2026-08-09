@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { hashPassword } from './auth.js';
 import * as store from './db.js';
 import { DESIGN_GUIDE } from './designguide.js';
+import { VERSION } from './version.js';
 import type { Presentation } from '@pointless/shared';
 
 export const MAX_HTML_BYTES = 2 * 1024 * 1024;
@@ -35,9 +36,9 @@ function info(p: Presentation, baseUrl: string) {
   };
 }
 
-export function buildMcpServer(baseUrl: string): McpServer {
+export function buildMcpServer(baseUrl: string, actor?: string, isAdmin = false): McpServer {
   const server = new McpServer(
-    { name: 'pointless', version: '0.2.0' },
+    { name: 'pointless', version: VERSION },
     {
       instructions:
         'Pointless hosts presentations that are full, self-contained interactive HTML documents ' +
@@ -47,6 +48,20 @@ export function buildMcpServer(baseUrl: string): McpServer {
         'protect it with a password (publish accepts one).',
     }
   );
+
+  /**
+   * Per-user ownership guard. When `actor` is set (an authenticated MCP caller),
+   * a deck is reachable only by its owner — non-existent, unowned (legacy), and
+   * other-owned decks are all indistinguishable ("no such id"), so existence
+   * never leaks. When `actor` is undefined (open mode), nothing is scoped and
+   * behaviour is unchanged.
+   */
+  const canAccess = async (id: string): Promise<boolean> => {
+    if (actor === undefined) return true; // open mode — unscoped
+    const owner = await store.getDeckOwner(id);
+    if (isAdmin) return owner !== undefined; // admins reach any existing deck (incl. legacy null-owner)
+    return owner === actor;
+  };
 
   server.registerTool(
     'get_design_guide',
@@ -68,7 +83,7 @@ export function buildMcpServer(baseUrl: string): McpServer {
       inputSchema: { title: z.string().min(1).max(200).describe('Human-readable title') },
     },
     async ({ title }) => {
-      const p = await store.createPresentation(title);
+      const p = await store.createPresentation(title, actor);
       return ok({
         ...info(p, baseUrl),
         next: 'Write the complete HTML document and call set_html. Call get_design_guide first if you have not.',
@@ -97,6 +112,9 @@ export function buildMcpServer(baseUrl: string): McpServer {
           'Send a complete HTML document including <html>, <head> and <body> — see get_design_guide.'
         );
       }
+      if (!(await canAccess(presentation_id))) {
+        return fail(`No presentation with id ${presentation_id}`);
+      }
       if (!(await store.setHtml(presentation_id, html, title))) {
         return fail(`No presentation with id ${presentation_id}`);
       }
@@ -119,6 +137,8 @@ export function buildMcpServer(baseUrl: string): McpServer {
       inputSchema: { presentation_id: z.string() },
     },
     async ({ presentation_id }) => {
+      if (!(await canAccess(presentation_id)))
+        return fail(`No presentation with id ${presentation_id}`);
       const p = await store.getPresentation(presentation_id);
       if (!p) return fail(`No presentation with id ${presentation_id}`);
       return ok({ ...info(p, baseUrl), html: p.html });
@@ -133,7 +153,7 @@ export function buildMcpServer(baseUrl: string): McpServer {
       inputSchema: {},
     },
     async () => {
-      const items = await store.listPresentations();
+      const items = await store.listPresentations(actor);
       return ok(
         items.map((p) => ({
           presentation_id: p.id,
@@ -165,6 +185,8 @@ export function buildMcpServer(baseUrl: string): McpServer {
       },
     },
     async ({ presentation_id, password }) => {
+      if (!(await canAccess(presentation_id)))
+        return fail(`No presentation with id ${presentation_id}`);
       const existing = await store.getPresentation(presentation_id);
       if (!existing) return fail(`No presentation with id ${presentation_id}`);
       if (existing.htmlSize === 0)
