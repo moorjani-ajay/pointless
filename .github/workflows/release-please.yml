@@ -1,0 +1,46 @@
+name: release-please
+
+# Watches main and maintains a standing "release PR" that bumps the version and
+# updates CHANGELOG.md from the Conventional Commits since the last release.
+# Merging that PR tags vX.Y.Z and cuts a GitHub Release, which (via the publish
+# job added in release.yml) builds and pushes the signed multi-arch image.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Never cancel a release-please run midway through opening/merging a release PR.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Maintain release PR / cut release
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # When (and only when) a release was just cut, build + push + sign the image.
+  publish:
+    name: Publish release image
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    uses: ./.github/workflows/release.yml
+    with:
+      tag_name: ${{ needs.release-please.outputs.tag_name }}
