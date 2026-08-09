@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/moorjani-ajay/pointless/compare/v0.5.1...v0.5.2) (2026-08-09)
+
+
+### Bug Fixes
+
+* **security:** update vulnerable transitive deps to clear audit ([#39](https://github.com/moorjani-ajay/pointless/issues/39)) ([269e76e](https://github.com/moorjani-ajay/pointless/commit/269e76e320250d19999ef51bc366fbbe0b217db4))
+
 ## [0.5.1](https://github.com/moorjani-ajay/pointless/compare/v0.5.0...v0.5.1) (2026-08-07)
 
 
