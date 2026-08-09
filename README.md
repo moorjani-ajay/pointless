@@ -20,6 +20,35 @@ See [`examples/uk-quiz.html`](examples/uk-quiz.html) for what a presentation can
 be: a standup quiz with timers, reveal states, and keyboard navigation,
 generated in one conversation.
 
+## Try it
+
+No install required. Point your MCP client at the hosted instance and start
+asking for presentations.
+
+<!-- demo GIF: add ![pointless demo](docs/demo.gif) here once recorded -->
+
+1. **Add the MCP server.**
+
+   ```sh
+   claude mcp add --transport http pointless https://app.pointless.show/mcp
+   ```
+
+   For Claude Desktop / claude.ai: Settings → Connectors → Add custom
+   connector, paste `https://app.pointless.show/mcp`.
+
+2. **Sign in.** On first connect your client opens a Google sign-in (any Google
+   account works, nothing to paste).
+
+3. **Create.** Ask in plain language: _"make me a deck on our Q3 results."_ The
+   LLM authors a self-contained HTML presentation and hands back a share link
+   anyone can open.
+
+4. **Manage in the UI.** Open [app.pointless.show](https://app.pointless.show) to
+   browse your presentations with live thumbnails, copy or password-protect
+   share links, and delete what you no longer need.
+
+Want your own instance instead? See [Run it](#run-it).
+
 ## How it works
 
 - **One stateless server.** Express + PostgreSQL + a built-in web UI. It keeps
