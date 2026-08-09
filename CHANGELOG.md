@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/moorjani-ajay/pointless/compare/v0.5.2...v0.5.3) (2026-08-09)
+
+
+### Dependencies
+
+* bump react and react-dom to 19 ([#15](https://github.com/moorjani-ajay/pointless/issues/15)) ([a4d63aa](https://github.com/moorjani-ajay/pointless/commit/a4d63aa19379c31fca0f4f9b157de6290264c85f))
+
 ## [0.5.2](https://github.com/moorjani-ajay/pointless/compare/v0.5.1...v0.5.2) (2026-08-09)
 
 
