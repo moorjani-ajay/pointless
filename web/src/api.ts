@@ -24,6 +24,13 @@ async function get<T>(url: string, headers?: Record<string, string>): Promise<T>
   return res.json() as Promise<T>;
 }
 
+export interface VersionInfo {
+  version: string;
+  commit: string;
+}
+
+export const getVersion = () => get<VersionInfo>('/version');
+
 export const listDecks = () => get<PresentationSummary[]>('/api/decks', adminHeaders());
 export const getDeck = (id: string) => get<PresentationSummary>(`/api/decks/${id}`, adminHeaders());
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.1](https://github.com/moorjani-ajay/pointless/compare/v0.5.0...v0.5.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **auth:** default OIDC scopes when env var is empty ([#37](https://github.com/moorjani-ajay/pointless/issues/37)) ([059fd6b](https://github.com/moorjani-ajay/pointless/commit/059fd6b754181efac82e9d3f62ddb132a7f36f69))
+
+## [0.5.0](https://github.com/moorjani-ajay/pointless/compare/v0.4.0...v0.5.0) (2026-08-07)
+
+
+### Features
+
+* **web:** simplify home page to just the presentation list ([#35](https://github.com/moorjani-ajay/pointless/issues/35)) ([9ec344a](https://github.com/moorjani-ajay/pointless/commit/9ec344a699d63b2731572e0a901b02fa70c2234d))
+
+## [0.4.0](https://github.com/moorjani-ajay/pointless/compare/v0.3.0...v0.4.0) (2026-07-03)
+
+
+### Features
+
+* **auth:** pluggable SSO/OIDC login + interactive OAuth 2.1 on /mcp ([#29](https://github.com/moorjani-ajay/pointless/issues/29)) ([e1ae589](https://github.com/moorjani-ajay/pointless/commit/e1ae589a550945bfdc19bb5fae1703c69da8a5bd))
+* **web:** show version in homepage footer ([#32](https://github.com/moorjani-ajay/pointless/issues/32)) ([aca7956](https://github.com/moorjani-ajay/pointless/commit/aca79568cb00cb5d04e727f912a0335c9405622b))
+
 ## [0.3.0](https://github.com/moorjani-ajay/pointless/compare/v0.2.0...v0.3.0) (2026-06-28)
 
 
