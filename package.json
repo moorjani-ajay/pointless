@@ -26,10 +26,10 @@
     "prepare": "husky"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.1.0",
-    "@commitlint/config-conventional": "^21.1.0",
+    "@commitlint/cli": "^21.2.1",
+    "@commitlint/config-conventional": "^21.2.0",
     "@eslint/js": "^10.0.1",
-    "@playwright/test": "^1.53.0",
+    "@playwright/test": "^1.62.1",
     "@types/supertest": "^6.0.2",
     "@vitest/coverage-v8": "^3.2.0",
     "eslint": "^9.29.0",
@@ -37,10 +37,10 @@
     "globals": "^16.2.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.1.0",
-    "prettier": "^3.5.0",
+    "prettier": "^3.9.6",
     "supertest": "^7.1.0",
     "typescript": "^5.8.0",
-    "typescript-eslint": "^8.34.0",
+    "typescript-eslint": "^8.66.0",
     "vitest": "^3.2.0"
   },
   "lint-staged": {
