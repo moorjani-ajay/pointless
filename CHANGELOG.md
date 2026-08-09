@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/moorjani-ajay/pointless/compare/v0.5.3...v0.6.0) (2026-08-09)
+
+
+### Features
+
+* **web:** one-click Add-to-Cursor / VS Code buttons on the landing ([#45](https://github.com/moorjani-ajay/pointless/issues/45)) ([6ee4e2d](https://github.com/moorjani-ajay/pointless/commit/6ee4e2d3c23650cd411fb7076a14f5ae4b2f89db))
+
 ## [0.5.3](https://github.com/moorjani-ajay/pointless/compare/v0.5.2...v0.5.3) (2026-08-09)
 
 
