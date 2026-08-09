@@ -234,6 +234,13 @@ code {
   overflow-wrap: anywhere;
 }
 
+.connect-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* ---------- Presentation grid ---------- */
 
 .deck-grid {
