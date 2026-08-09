@@ -1,6 +1,6 @@
 {
   "name": "pointless",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "description": "Pointless — presentations, minus the Power. Talk decks into existence over MCP, share them with a link.",
