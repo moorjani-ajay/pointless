@@ -25,6 +25,15 @@ const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 export const OIDC_TXN_COOKIE = 'pointless_oidc_txn';
 const OIDC_TXN_TTL_SECONDS = 10 * 60; // 10 minutes — one IdP round-trip
 
+/**
+ * Short-lived marker set at logout. The next /auth/login from this browser
+ * sends `prompt=select_account` to the IdP so a still-live IdP session (Google
+ * has no logout endpoint; others may simply not have been ended) yields the
+ * account picker rather than a silent re-login as the previous account.
+ */
+export const POST_LOGOUT_COOKIE = 'pointless_post_logout';
+const POST_LOGOUT_TTL_SECONDS = 5 * 60; // one "sign back in" window
+
 /** Per-request operator identity, populated by `requireOperator` in app.ts. */
 export interface Operator {
   /** Our user id, or null for the ADMIN_TOKEN break-glass path. */
@@ -163,4 +172,22 @@ export function setOidcTxnCookie(res: express.Response, state: string): void {
 
 export function clearOidcTxnCookie(res: express.Response): void {
   res.clearCookie(OIDC_TXN_COOKIE, cookieOptions());
+}
+
+/** Mark this browser as freshly logged out (see POST_LOGOUT_COOKIE). */
+export function setPostLogoutCookie(res: express.Response): void {
+  res.cookie(POST_LOGOUT_COOKIE, signToken({ plo: true }, POST_LOGOUT_TTL_SECONDS), {
+    ...cookieOptions(),
+    maxAge: POST_LOGOUT_TTL_SECONDS * 1000,
+  });
+}
+
+/** Did this browser just log out? (forged/expired markers read as no) */
+export function hasPostLogoutCookie(req: express.Request): boolean {
+  const claims = verifyToken(readCookie(req, POST_LOGOUT_COOKIE));
+  return claims?.plo === true;
+}
+
+export function clearPostLogoutCookie(res: express.Response): void {
+  res.clearCookie(POST_LOGOUT_COOKIE, cookieOptions());
 }
