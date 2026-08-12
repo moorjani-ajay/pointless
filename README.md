@@ -16,10 +16,6 @@ LLM: …calls create_presentation / set_html / publish…
 LLM: "Here you go: https://pointless.yourcompany.com/d/YzRu45qV…"
 ```
 
-See [`examples/uk-quiz.html`](examples/uk-quiz.html) for what a presentation can
-be: a standup quiz with timers, reveal states, and keyboard navigation,
-generated in one conversation.
-
 ## Try it
 
 No install required. Point your MCP client at the hosted instance and start
