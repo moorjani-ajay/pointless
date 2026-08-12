@@ -25,7 +25,7 @@ generated in one conversation.
 No install required. Point your MCP client at the hosted instance and start
 asking for presentations.
 
-<!-- demo GIF: add ![pointless demo](docs/demo.gif) here once recorded -->
+![pointless demo: add the MCP server, ask for a presentation, open the share link](docs/demo.gif)
 
 1. **Add the MCP server.**
 
