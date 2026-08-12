@@ -4,6 +4,7 @@ import { createApp } from '../src/app';
 import * as store from '../src/db';
 import {
   OIDC_TXN_COOKIE,
+  POST_LOGOUT_COOKIE,
   SESSION_COOKIE,
   signOidcTxn,
   signSession,
@@ -300,6 +301,68 @@ describe('federation (mock IdP)', () => {
       expect(cb.status).toBe(403);
     } finally {
       delete process.env.OIDC_ALLOWED_DOMAINS;
+    }
+  });
+});
+
+describe('logout', () => {
+  it('is local-only against an IdP with no end_session_endpoint (Google-like)', async () => {
+    const res = await request(createApp()).post('/auth/logout');
+    expect(res.status).toBe(204);
+    const cookies = ((res.headers['set-cookie'] as unknown as string[]) ?? []).join(';');
+    expect(cookies).toContain(`${SESSION_COOKIE}=;`); // session cleared
+    expect(cookies).toContain(`${POST_LOGOUT_COOKIE}=v1.`); // marker set
+  });
+
+  it('forces the IdP account picker on the next login after a logout', async () => {
+    const app = createApp();
+    const out = await request(app).post('/auth/logout');
+    const login = await request(app).get('/auth/login').set('Cookie', cookiesFrom(out));
+    expect(login.status).toBe(302);
+    expect(new URL(login.headers.location).searchParams.get('prompt')).toBe('select_account');
+    // The marker is one-shot: the login response clears it again.
+    const setCookies = ((login.headers['set-cookie'] as unknown as string[]) ?? []).join(';');
+    expect(setCookies).toContain(`${POST_LOGOUT_COOKIE}=;`);
+  });
+
+  it('sends no prompt on a login not preceded by a logout', async () => {
+    const login = await request(createApp()).get('/auth/login');
+    expect(new URL(login.headers.location).searchParams.get('prompt')).toBeNull();
+  });
+
+  it('hands back the IdP end-session URL when advertised (Auth0/Entra-like)', async () => {
+    const idp2 = await startMockOidc('test-client', 'test-secret', { endSession: true });
+    const saved = process.env.OIDC_ISSUER;
+    process.env.OIDC_ISSUER = idp2.issuer;
+    resetOidcConfigCache();
+    try {
+      const res = await request(createApp()).post('/auth/logout');
+      expect(res.status).toBe(200);
+      const url = new URL(res.body.redirect);
+      expect(`${url.origin}${url.pathname}`).toBe(`${idp2.issuer}/logout`);
+      expect(url.searchParams.get('client_id')).toBe('test-client');
+      expect(url.searchParams.get('post_logout_redirect_uri')).toBe('http://localhost:3000');
+    } finally {
+      process.env.OIDC_ISSUER = saved;
+      resetOidcConfigCache();
+      await idp2.close();
+    }
+  });
+
+  it('OIDC_RP_LOGOUT=false opts out of RP-initiated logout', async () => {
+    const idp2 = await startMockOidc('test-client', 'test-secret', { endSession: true });
+    const saved = process.env.OIDC_ISSUER;
+    process.env.OIDC_ISSUER = idp2.issuer;
+    process.env.OIDC_RP_LOGOUT = 'false';
+    resetOidcConfigCache();
+    try {
+      const res = await request(createApp()).post('/auth/logout');
+      expect(res.status).toBe(204);
+    } finally {
+      process.env.OIDC_ISSUER = saved;
+      delete process.env.OIDC_RP_LOGOUT;
+      resetOidcConfigCache();
+      await idp2.close();
     }
   });
 });
