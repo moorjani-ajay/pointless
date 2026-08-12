@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/moorjani-ajay/pointless/compare/v0.6.0...v0.6.1) (2026-08-11)
+
+
+### Bug Fixes
+
+* **auth:** end the IdP session on logout (RP-initiated logout + select_account) ([#62](https://github.com/moorjani-ajay/pointless/issues/62)) ([70b25bc](https://github.com/moorjani-ajay/pointless/commit/70b25bc8695bc2b1707f70962b91233c55bcc1f4))
+
 ## [0.6.0](https://github.com/moorjani-ajay/pointless/compare/v0.5.3...v0.6.0) (2026-08-09)
 
 
