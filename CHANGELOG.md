@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/moorjani-ajay/pointless/compare/v0.6.1...v0.6.2) (2026-08-12)
+
+
+### Dependencies
+
+* sweep dependency updates: bump runtime deps (@modelcontextprotocol/sdk 1.30.0, express-rate-limit 8.6.2) and dev/CI tooling (eslint 10, @types/node 26, @testcontainers/postgresql 12, globals 17, lint-staged 17, and GitHub Actions), all verified green (typecheck, tests, build, lint, audit, E2E)
+
 ## [0.6.1](https://github.com/moorjani-ajay/pointless/compare/v0.6.0...v0.6.1) (2026-08-11)
 
 
