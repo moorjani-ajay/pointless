@@ -71,7 +71,7 @@ jobs:
 
       - name: Derive tags + OCI labels
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE }}
           # Float latest and the major/minor tags only for stable releases;
