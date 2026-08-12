@@ -40,10 +40,18 @@ export function login(): void {
 }
 
 export async function logout(): Promise<void> {
+  // The server answers with the IdP's end-session URL when the IdP supports
+  // RP-initiated logout — navigating there ends the IdP session too, then
+  // bounces back home. 204 (or any failure) ⇒ local-only logout, go home.
+  let dest = '/';
   try {
-    await fetch('/auth/logout', { method: 'POST' });
+    const res = await fetch('/auth/logout', { method: 'POST' });
+    if (res.status === 200) {
+      const body = (await res.json()) as { redirect?: string };
+      if (body.redirect) dest = body.redirect;
+    }
   } finally {
-    window.location.assign('/');
+    window.location.assign(dest);
   }
 }
 
