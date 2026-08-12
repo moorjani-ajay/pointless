@@ -1,5 +1,5 @@
 import * as client from 'openid-client';
-import { oidcRedirectUri, oidcSettings } from '../config.js';
+import { canonicalBaseUrl, oidcRedirectUri, oidcSettings } from '../config.js';
 
 /**
  * Upstream OIDC federation via openid-client v6 (functional API).
@@ -68,8 +68,13 @@ export interface FederationStart {
 /**
  * Begin a federation: returns the IdP authorization URL plus the `state` and
  * PKCE `verifier` the caller must persist (keyed by `state`) before redirecting.
+ *
+ * `prompt` (e.g. 'select_account') is forwarded to the IdP when set — used
+ * after a logout so an IdP with a live session (or Google, which has no logout
+ * endpoint at all) shows its account picker instead of silently signing the
+ * previous account straight back in.
  */
-export async function startFederation(): Promise<FederationStart> {
+export async function startFederation(opts?: { prompt?: string }): Promise<FederationStart> {
   const cfg = await oidcConfig();
   const { scopes } = oidcSettings();
   const verifier = client.randomPKCECodeVerifier();
@@ -81,8 +86,28 @@ export async function startFederation(): Promise<FederationStart> {
     code_challenge: challenge,
     code_challenge_method: 'S256',
     state,
+    ...(opts?.prompt ? { prompt: opts.prompt } : {}),
   });
   return { url, state, verifier };
+}
+
+/**
+ * RP-initiated logout (OIDC Session Management): the IdP URL to send the
+ * browser to after clearing the local session, or null when the IdP does not
+ * advertise an `end_session_endpoint` (Google doesn't — local logout plus the
+ * post-logout `prompt=select_account` is all there is). `client_id` lets IdPs
+ * that accept it (Auth0, Entra, Keycloak) validate `post_logout_redirect_uri`
+ * without an `id_token_hint`, which the stateless session never retains.
+ * Disable with OIDC_RP_LOGOUT=false to fall back to local-only logout.
+ */
+export async function endSessionUrl(): Promise<URL | null> {
+  if (process.env.OIDC_RP_LOGOUT === 'false') return null;
+  const cfg = await oidcConfig();
+  if (!cfg.serverMetadata().end_session_endpoint) return null;
+  return client.buildEndSessionUrl(cfg, {
+    client_id: oidcSettings().clientId,
+    post_logout_redirect_uri: canonicalBaseUrl(),
+  });
 }
 
 export interface FederatedIdentity {
