@@ -22,9 +22,15 @@ export interface MockOidc {
   close(): Promise<void>;
 }
 
+export interface MockOidcOptions {
+  /** Advertise an end_session_endpoint (Auth0/Entra-like). Default false (Google-like). */
+  endSession?: boolean;
+}
+
 export async function startMockOidc(
   clientId = 'test-client',
-  clientSecret = 'test-secret'
+  clientSecret = 'test-secret',
+  opts: MockOidcOptions = {}
 ): Promise<MockOidc> {
   const { publicKey, privateKey } = await generateKeyPair('RS256', { extractable: true });
   const jwk = { ...(await exportJWK(publicKey)), kid: 'test-key', alg: 'RS256', use: 'sig' };
@@ -52,6 +58,7 @@ export async function startMockOidc(
             code_challenge_methods_supported: ['S256'],
             grant_types_supported: ['authorization_code', 'refresh_token'],
             token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
+            ...(opts.endSession ? { end_session_endpoint: `${issuer}/logout` } : {}),
           });
         case '/jwks':
           return json({ keys: [jwk] });

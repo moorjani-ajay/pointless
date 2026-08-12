@@ -1,13 +1,16 @@
 import type express from 'express';
 import { canonicalBaseUrl, isEmailAllowed, roleForEmail } from '../config.js';
 import * as store from '../db.js';
-import { completeFederation, startFederation } from './federation.js';
+import { completeFederation, endSessionUrl, startFederation } from './federation.js';
 import {
   clearOidcTxnCookie,
+  clearPostLogoutCookie,
   clearSessionCookie,
   currentOidcTxn,
   currentUserId,
+  hasPostLogoutCookie,
   setOidcTxnCookie,
+  setPostLogoutCookie,
   setSessionCookie,
 } from './session.js';
 import { mintOpaque, sha256 } from './tokens.js';
@@ -26,7 +29,13 @@ export function mountAuthRoutes(app: express.Express): void {
   // Kick off an interactive login: bounce the browser to the IdP.
   app.get('/auth/login', (req, res, next) => {
     void (async () => {
-      const { url, state, verifier } = await startFederation();
+      // Right after a logout, force the IdP's account picker: a still-live IdP
+      // session would otherwise silently sign the previous account back in.
+      const freshLogout = hasPostLogoutCookie(req);
+      if (freshLogout) clearPostLogoutCookie(res);
+      const { url, state, verifier } = await startFederation(
+        freshLogout ? { prompt: 'select_account' } : undefined
+      );
       await store.insertLoginState({ state, intent: 'ui', pkceVerifier: verifier });
       setOidcTxnCookie(res, state); // bind this login to the initiating browser
       res.redirect(url.href);
@@ -114,7 +123,17 @@ export function mountAuthRoutes(app: express.Express): void {
   });
 
   app.post('/auth/logout', (_req, res) => {
-    clearSessionCookie(res);
-    res.status(204).end();
+    void (async () => {
+      clearSessionCookie(res);
+      setPostLogoutCookie(res);
+      // RP-initiated logout: clearing our cookie is half the story — the IdP
+      // session survives it, and the next login would silently resume the same
+      // account. Hand the browser the IdP's end-session URL when it has one
+      // (Auth0/Entra/Keycloak/Okta do; Google doesn't). Best-effort: a
+      // discovery failure must not turn logout into a 500.
+      const idpLogout = await endSessionUrl().catch(() => null);
+      if (idpLogout) return res.json({ redirect: idpLogout.href });
+      res.status(204).end();
+    })();
   });
 }
