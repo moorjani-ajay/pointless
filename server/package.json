@@ -26,6 +26,6 @@
     "@types/sanitize-html": "^2.13.0",
     "jose": "^6.2.8",
     "tsx": "^4.23.9",
-    "typescript": "^5.8.0"
+    "typescript": "^6.0.3"
   }
 }
