@@ -24,8 +24,8 @@
     "@types/node": "^26.2.0",
     "@types/pg": "^8.20.4",
     "@types/sanitize-html": "^2.13.0",
-    "jose": "^6.2.8",
-    "tsx": "^4.23.9",
+    "jose": "^6.2.9",
+    "tsx": "^4.23.12",
     "typescript": "^5.8.0"
   }
 }
